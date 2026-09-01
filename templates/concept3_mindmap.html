@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Keeper - Concept Mindmap Node Graph</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --background: #020205;
+            --foreground: #f8fafc;
+            --card: rgba(15, 15, 25, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #a855f7;
+            --primary-glow: rgba(168, 85, 247, 0.15);
+            --accent: #22d3ee;
+            --accent-glow: rgba(34, 211, 238, 0.15);
+            --secondary: #1e1b4b;
+            --muted-foreground: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+            --radius: 1rem;
+            --font-sans: 'Plus Jakarta Sans', sans-serif;
+            --font-display: 'Space Grotesk', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--background);
+            color: var(--foreground);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(120, 119, 198, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(34, 211, 238, 0.08) 0px, transparent 50%);
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.25rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background-color: rgba(2, 2, 5, 0.8);
+            backdrop-filter: blur(12px);
+            z-index: 10;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            filter: drop-shadow(0 0 8px var(--primary-glow));
+        }
+
+        .logo-title {
+            font-family: var(--font-display);
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+        }
+
+        .logo-tag {
+            font-size: 0.65rem;
+            background: rgba(168, 85, 247, 0.2);
+            color: #d8b4fe;
+            padding: 0.2rem 0.6rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+
+        /* Infinite Mindmap Canvas */
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            cursor: grab;
+            background: radial-gradient(circle, rgba(255,255,255,0.015) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+
+        .canvas-area:active {
+            cursor: grabbing;
+        }
+
+        /* SVG lines connecting nodes */
+        .canvas-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Draggable / Zoomable map element containing items */
+        .node-network {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+
+        /* Mindmap Nodes */
+        .mindmap-node {
+            position: absolute;
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            max-width: 260px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(8px);
+            transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .mindmap-node:hover {
+            transform: scale(1.05);
+            border-color: var(--primary);
+            box-shadow: 0 0 16px var(--primary-glow), 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .mindmap-node.hub {
+            border-color: var(--accent);
+            box-shadow: 0 0 16px var(--accent-glow), 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .node-img {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.05);
+            padding: 4px;
+        }
+
+        .node-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .node-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 0.1rem;
+        }
+
+        .node-subtitle {
+            font-size: 0.65rem;
+            color: var(--muted-foreground);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .node-pill {
+            position: absolute;
+            top: -10px;
+            right: 10px;
+            font-size: 0.6rem;
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            background: #22c55e;
+            color: #ffffff;
+            font-weight: bold;
+        }
+
+        .node-pill.sleeping {
+            background: #3b82f6;
+        }
+
+        .node-pill.group {
+            background: #a855f7;
+        }
+
+        /* Hub badge styling */
+        .hub-tag {
+            font-family: var(--font-display);
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+        }
+
+        /* Floating UI Tools on Canvas */
+        .canvas-controls {
+            position: absolute;
+            bottom: 2rem;
+            right: 2rem;
+            display: flex;
+            gap: 0.5rem;
+            z-index: 10;
+        }
+
+        .control-btn {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            color: var(--foreground);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(12px);
+            transition: all 0.2s;
+        }
+
+        .control-btn:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 10px var(--primary-glow);
+            transform: translateY(-2px);
+        }
+
+        /* Floating Timeline Slider at the bottom center */
+        .timeline-dock {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 500px;
+            background: rgba(10, 10, 20, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 1rem 1.5rem;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            z-index: 10;
+        }
+
+        .dock-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+        }
+
+        .dock-title {
+            font-family: var(--font-display);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .dock-nav {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .dock-nav-btn {
+            background: transparent;
+            border: none;
+            color: var(--foreground);
+            cursor: pointer;
+        }
+
+        .dock-nav-btn:hover {
+            color: var(--primary);
+        }
+
+        .dock-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 4px;
+            border-radius: 9999px;
+            background: rgba(255,255,255,0.1);
+            outline: none;
+            cursor: pointer;
+        }
+
+        .dock-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+            cursor: pointer;
+        }
+
+        .dock-slider-ticks {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65rem;
+            color: var(--muted-foreground);
+            padding: 0 0.25rem;
+        }
+
+        /* Top HUD indicators */
+        .hud-stats {
+            position: absolute;
+            top: 2rem;
+            left: 2rem;
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius);
+            padding: 1rem;
+            backdrop-filter: blur(12px);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            min-width: 200px;
+        }
+
+        .hud-stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+        }
+
+        .hud-stat-label {
+            color: var(--muted-foreground);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .hud-stat-val {
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="logo-area">
+            <span class="logo-icon"><i data-lucide="network"></i></span>
+            <span class="logo-title">Session Keeper</span>
+            <span class="logo-tag">mindmap visualization</span>
+        </div>
+        <div style="display: flex; gap: 1rem; align-items: center;">
+            <span style="font-size: 0.8rem; color: var(--muted-foreground); display: flex; align-items: center; gap: 0.35rem;">
+                <span style="width: 6px; height: 6px; border-radius: 50%; background: #22c55e;"></span>
+                Stockage SQLite Connecté
+            </span>
+            <button class="control-btn" style="width: auto; height: auto; padding: 0.4rem 1rem; border-radius: 8px; font-size: 0.85rem;"><i data-lucide="refresh-cw" style="width: 14px; height: 14px; margin-right: 0.25rem;"></i> Synchroniser</button>
+        </div>
+    </header>
+
+    <!-- Canvas -->
+    <div class="canvas-area" id="canvas">
+        
+        <!-- SVG Links Layer -->
+        <svg class="canvas-svg" id="svg-layer">
+            <!-- Dynamic lines will connect nodes here -->
+            <line x1="250" y1="300" x2="450" y2="180" stroke="rgba(255,255,255,0.06)" stroke-width="2" />
+            <line x1="250" y1="300" x2="450" y2="300" stroke="rgba(255,255,255,0.06)" stroke-width="2" />
+            <line x1="250" y1="300" x2="450" y2="420" stroke="rgba(255,255,255,0.06)" stroke-width="2" />
+            <line x1="250" y1="300" x2="150" y2="150" stroke="rgba(255,255,255,0.06)" stroke-width="2" />
+
+            <!-- Sub branch links -->
+            <line x1="450" y1="180" x2="720" y2="120" stroke="rgba(34, 211, 238, 0.15)" stroke-width="1.5" stroke-dasharray="4" />
+            <line x1="450" y1="180" x2="720" y2="200" stroke="rgba(34, 211, 238, 0.15)" stroke-width="1.5" stroke-dasharray="4" />
+        </svg>
+
+        <!-- Node Network viewport -->
+        <div class="node-network" id="network">
+            
+            <!-- Center Hub Node (Current Workspace context) -->
+            <div class="mindmap-node hub" style="left: 120px; top: 270px;">
+                <span class="logo-icon"><i data-lucide="orbit"></i></span>
+                <div class="node-info">
+                    <div class="hub-tag">Espace Actuel</div>
+                    <div class="node-title" style="font-weight: 700;">PROJET-PK & DEV</div>
+                </div>
+            </div>
+
+            <!-- Parent Tab 1 (GitHub) -->
+            <div class="mindmap-node" style="left: 360px; top: 140px;">
+                <span class="node-pill">Actif</span>
+                <img class="node-img" src="https://github.githubassets.com/favicons/favicon.svg" alt="">
+                <div class="node-info">
+                    <div class="node-title">GitHub - PKsession</div>
+                    <div class="node-subtitle">github.com/clm/chrome-pk...</div>
+                </div>
+            </div>
+
+            <!-- Sub Node of Tab 1 (Stack Overflow reference link click) -->
+            <div class="mindmap-node" style="left: 640px; top: 80px; transform: scale(0.9); opacity: 0.85;">
+                <span class="node-pill sleeping">Veille</span>
+                <img class="node-img" src="https://stackoverflow.com/favicon.ico" alt="">
+                <div class="node-info">
+                    <div class="node-title">StackOverflow: MV3 Storage</div>
+                    <div class="node-subtitle">stackoverflow.com/questions/...</div>
+                </div>
+            </div>
+
+            <!-- Sub Node 2 of Tab 1 (Chrome Extension Docs) -->
+            <div class="mindmap-node" style="left: 640px; top: 170px; transform: scale(0.9); opacity: 0.85;">
+                <span class="node-pill">Actif</span>
+                <img class="node-img" src="https://developer.chrome.com/images/meta/favicon-32x32.png" alt="">
+                <div class="node-info">
+                    <div class="node-title">Chrome Developer Docs</div>
+                    <div class="node-subtitle">developer.chrome.com/docs/...</div>
+                </div>
+            </div>
+
+            <!-- Parent Tab 2 (Design resources) -->
+            <div class="mindmap-node" style="left: 360px; top: 260px;">
+                <span class="node-pill group">PROJET-PK</span>
+                <img class="node-img" src="https://www.figma.com/favicon.ico" alt="">
+                <div class="node-info">
+                    <div class="node-title">Figma - PKsession Mockups</div>
+                    <div class="node-subtitle">figma.com/file/123456</div>
+                </div>
+            </div>
+
+            <!-- Parent Tab 3 (Docs search node) -->
+            <div class="mindmap-node" style="left: 360px; top: 380px;">
+                <span class="node-pill sleeping">Veille</span>
+                <img class="node-img" src="https://ui.shadcn.com/favicon.ico" alt="">
+                <div class="node-info">
+                    <div class="node-title">Shadcn/UI - Components</div>
+                    <div class="node-subtitle">ui.shadcn.com/docs/components</div>
+                </div>
+            </div>
+
+            <!-- Node 4 (Inbox tab, pinned but separate from dev) -->
+            <div class="mindmap-node" style="left: 50px; top: 110px;">
+                <span class="node-pill" style="background: #f59e0b;">Épinglé</span>
+                <img class="node-img" src="https://mail.google.com/favicon.ico" alt="">
+                <div class="node-info">
+                    <div class="node-title">Gmail (Pro)</div>
+                    <div class="node-subtitle">mail.google.com/mail/u/0</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Floating stats HUD -->
+        <div class="hud-stats">
+            <div style="font-family: var(--font-display); font-weight: 700; font-size: 0.9rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">Structure Globale</div>
+            <div class="hud-stat-item">
+                <span class="hud-stat-label"><i data-lucide="network" style="width: 14px; height: 14px; color: var(--primary);"></i> Nœuds actifs</span>
+                <span class="hud-stat-val">78</span>
+            </div>
+            <div class="hud-stat-item">
+                <span class="hud-stat-label"><i data-lucide="git-branch" style="width: 14px; height: 14px; color: var(--accent);"></i> Branches de vie</span>
+                <span class="hud-stat-val">12</span>
+            </div>
+            <div class="hud-stat-item">
+                <span class="hud-stat-label"><i data-lucide="moon" style="width: 14px; height: 14px; color: #3b82f6;"></i> En sommeil</span>
+                <span class="hud-stat-val">28</span>
+            </div>
+        </div>
+
+        <!-- Zoom/Pan controls -->
+        <div class="canvas-controls">
+            <button class="control-btn" title="Zoom In"><i data-lucide="zoom-in"></i></button>
+            <button class="control-btn" title="Zoom Out"><i data-lucide="zoom-out"></i></button>
+            <button class="control-btn" title="Recentrer"><i data-lucide="maximize"></i></button>
+        </div>
+
+        <!-- Float Timeline dock -->
+        <div class="timeline-dock">
+            <div class="dock-header">
+                <div class="dock-title">
+                    <i data-lucide="history" style="color: var(--primary);"></i>
+                    <span id="slider-val">Dernier instantané (14:32)</span>
+                </div>
+                <div class="dock-nav">
+                    <button class="dock-nav-btn" id="prev"><i data-lucide="chevron-left" style="width: 16px; height: 16px;"></i></button>
+                    <button class="dock-nav-btn" id="next"><i data-lucide="chevron-right" style="width: 16px; height: 16px;"></i></button>
+                </div>
+            </div>
+            <input type="range" class="dock-slider" id="timeline-slider" min="1" max="5" value="5">
+            <div class="dock-slider-ticks">
+                <span>Hier 14:00</span>
+                <span>Hier 18:00</span>
+                <span>Ce matin 10:00</span>
+                <span>13:15</span>
+                <span>Maintenant</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Script -->
+    <script>
+        lucide.createIcons();
+
+        // Timeline Slider navigation
+        const slider = document.getElementById('timeline-slider');
+        const sliderVal = document.getElementById('slider-val');
+        const prev = document.getElementById('prev');
+        const next = document.getElementById('next');
+
+        const states = [
+            "Hier 14:00 (110 onglets)",
+            "Hier 18:00 (123 onglets)",
+            "Ce matin 10:00 (92 onglets)",
+            "13:15 (64 onglets)",
+            "Dernier instantané (14:32)"
+        ];
+
+        function updateSlider(val) {
+            sliderVal.textContent = states[val - 1];
+        }
+
+        slider.addEventListener('input', (e) => {
+            updateSlider(e.target.value);
+        });
+
+        prev.addEventListener('click', () => {
+            let val = parseInt(slider.value);
+            if (val > 1) {
+                slider.value = val - 1;
+                updateSlider(slider.value);
+            }
+        });
+
+        next.addEventListener('click', () => {
+            let val = parseInt(slider.value);
+            if (val < 5) {
+                slider.value = val + 1;
+                updateSlider(slider.value);
+            }
+        });
+
+        // Basic drag simulation for mindmap canvas
+        const canvas = document.getElementById('canvas');
+        const network = document.getElementById('network');
+        const svg = document.getElementById('svg-layer');
+
+        let isDragging = false;
+        let startX, startY;
+        let translateX = 0, translateY = 0;
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.mindmap-node')) return; // ignore nodes dragging
+            isDragging = true;
+            startX = e.clientX - translateX;
+            startY = e.clientY - translateY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+            network.style.transform = `translate(${translateX}px, ${translateY}px)`;
+            
+            // Adjust SVG layer
+            svg.style.transform = `translate(${translateX}px, ${translateY}px)`;
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+    </script>
+</body>
+</html>

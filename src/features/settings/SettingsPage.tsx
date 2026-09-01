@@ -1,0 +1,25 @@
+import { useEffect, useRef, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Archive, Database, Download, Plus, ShieldCheck, Trash2, Upload, X } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { db, defaultSettings, exportBundle, importBundle } from '@/lib/db';
+import { hasExtensionRuntime, sendRuntime } from '@/lib/runtime';
+import type { ExportBundleV1 } from '@/lib/types';
+
+export function SettingsPage() {
+  const settings = useLiveQuery(() => db.settings.get('settings'), []) ?? defaultSettings;
+  const [domain, setDomain] = useState('');
+  const [usage, setUsage] = useState('Calcul…');
+  const fileRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { void navigator.storage?.estimate().then(({ usage, quota }) => setUsage(`${((usage ?? 0) / 1_048_576).toFixed(1)} Mo${quota ? ` sur ${(quota / 1_073_741_824).toFixed(1)} Go disponibles` : ''}`)); }, []);
+  async function updateExcluded(excludedDomains: string[]) { await db.settings.put({ ...settings, excludedDomains }); toast.success('Réglages enregistrés'); }
+  async function addDomain() { const clean = domain.trim().replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, ''); if (!clean || settings.excludedDomains.includes(clean)) return; await updateExcluded([...settings.excludedDomains, clean]); setDomain(''); }
+  async function download() { const bundle = await exportBundle(); const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `pk-session-${new Date().toISOString().slice(0, 10)}.json`; anchor.click(); URL.revokeObjectURL(url); toast.success('Sauvegarde exportée'); }
+  async function importFile(file?: File) { if (!file) return; try { await importBundle(JSON.parse(await file.text()) as ExportBundleV1); toast.success('Sauvegarde importée'); } catch (error) { toast.error((error as Error).message); } }
+  async function importHistory() { try { const result = await sendRuntime<{ imported: number }>({ type: 'IMPORT_HISTORY' }); toast.success(`${result.imported} visites importées dans l’archive`); } catch (error) { toast.error((error as Error).message); } }
+  async function clearData() { if (!confirm('Effacer définitivement toutes les sessions et tout le parcours local ?')) return; await Promise.all([db.snapshots.clear(), db.states.clear(), db.logicalTabs.clear(), db.events.clear(), db.archive.clear()]); toast.success('Données locales effacées'); }
+  return <div className="page standard-page settings-page"><header className="page-header"><div><h1>Réglages</h1><p>Confidentialité, exclusions et sauvegardes locales</p></div></header><section className="settings-card"><div className="settings-heading"><ShieldCheck /><div><h2>Confidentialité</h2><p>Aucune donnée ne quitte cet appareil. La navigation privée est toujours ignorée.</p></div></div><div className="setting-row"><div><strong>Enregistrement du parcours</strong><span>Capturer les changements d’onglet et les navigations</span></div><Switch checked disabled /></div><div className="setting-row"><div><strong>Jalons automatiques</strong><span>Versionner la session toutes les 15 minutes lorsqu’elle change</span></div><Switch checked disabled /></div></section><section className="settings-card"><div className="settings-heading"><ShieldCheck /><div><h2>Domaines exclus</h2><p>Ces domaines ne seront ni enregistrés ni inclus dans les sessions.</p></div></div><div className="domain-input"><Input value={domain} onChange={(event) => setDomain(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void addDomain(); }} placeholder="exemple.com" /><Button onClick={addDomain}><Plus data-icon="inline-start" />Ajouter</Button></div><div className="excluded-list">{settings.excludedDomains.length ? settings.excludedDomains.map((item) => <span key={item}>{item}<button onClick={() => updateExcluded(settings.excludedDomains.filter((domain) => domain !== item))}><X /></button></span>) : <small>Aucun domaine exclu.</small>}</div></section><section className="settings-card"><div className="settings-heading"><Database /><div><h2>Données locales</h2><p>{usage} · conservation sans limite jusqu’au nettoyage manuel</p></div></div><div className="settings-actions"><Button variant="outline" onClick={download}><Download data-icon="inline-start" />Exporter en JSON</Button><Button variant="outline" onClick={() => fileRef.current?.click()}><Upload data-icon="inline-start" />Importer un JSON</Button><input ref={fileRef} type="file" accept="application/json" hidden onChange={(event) => void importFile(event.target.files?.[0])} /><Button variant="outline" disabled={!hasExtensionRuntime()} onClick={importHistory}><Archive data-icon="inline-start" />Importer l’historique Chrome</Button><Button variant="outline" className="danger-action" onClick={clearData}><Trash2 data-icon="inline-start" />Tout effacer</Button></div></section></div>;
+}

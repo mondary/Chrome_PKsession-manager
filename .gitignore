@@ -1,0 +1,8 @@
+node_modules
+.output
+extension-build
+.wxt
+coverage
+*.zip
+.DS_Store
+.agent

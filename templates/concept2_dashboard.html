@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Keeper - Concept Dashboard Diff</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --background: #f8fafc;
+            --foreground: #0f172a;
+            --card: #ffffff;
+            --card-foreground: #0f172a;
+            --primary: #4f46e5;
+            --primary-foreground: #ffffff;
+            --secondary: #f1f5f9;
+            --secondary-foreground: #0f172a;
+            --muted: #f8fafc;
+            --muted-foreground: #64748b;
+            --border: #e2e8f0;
+            --radius: 0.75rem;
+            --font-sans: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--background);
+            color: var(--foreground);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background-color: var(--card);
+            z-index: 10;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+        }
+
+        .logo-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+        }
+
+        .logo-tag {
+            font-size: 0.7rem;
+            background: rgba(79, 70, 229, 0.1);
+            color: var(--primary);
+            padding: 0.2rem 0.5rem;
+            border-radius: 9999px;
+            font-weight: 600;
+        }
+
+        .workspace {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Side Navigation: Snapshot list */
+        .sidebar {
+            width: 320px;
+            border-right: 1px solid var(--border);
+            background: var(--card);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .search-bar {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.6rem 1rem 0.6rem 2.25rem;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: var(--background);
+            font-family: inherit;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--muted-foreground);
+            pointer-events: none;
+        }
+
+        .snapshot-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .snapshot-row {
+            padding: 1rem;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: var(--card);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .snapshot-row:hover {
+            border-color: var(--primary);
+            background: var(--background);
+        }
+
+        .snapshot-row.selected {
+            border-color: var(--primary);
+            background: rgba(79, 70, 229, 0.04);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.05);
+        }
+
+        .snapshot-time-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .time-label {
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .date-label {
+            font-size: 0.75rem;
+            color: var(--muted-foreground);
+        }
+
+        .snapshot-stats {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            font-size: 0.7rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 9999px;
+            font-weight: 500;
+            background: var(--secondary);
+            color: var(--muted-foreground);
+        }
+
+        .badge.active {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+        }
+
+        .badge.sleep {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+        }
+
+        /* Central Workspace: Columns representing tabs by categories */
+        .dashboard-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .timeline-navigation-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .version-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .version-nav-btn {
+            background: var(--secondary);
+            border: 1px solid var(--border);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .version-nav-btn:hover {
+            background: var(--border);
+        }
+
+        /* Grid of categories */
+        .tabs-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            padding: 1.5rem;
+            overflow-y: auto;
+            background: #f1f5f9;
+        }
+
+        .column-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            display: flex;
+            flex-direction: column;
+            max-height: 100%;
+            overflow: hidden;
+        }
+
+        .column-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .column-title {
+            font-size: 0.875rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .column-count {
+            font-size: 0.75rem;
+            background: var(--secondary);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .column-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .tab-item {
+            padding: 0.75rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-item:hover {
+            border-color: var(--primary);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+
+        .tab-favicon {
+            width: 16px;
+            height: 16px;
+            margin-top: 2px;
+        }
+
+        .tab-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .tab-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 0.15rem;
+        }
+
+        .tab-url {
+            font-size: 0.7rem;
+            color: var(--muted-foreground);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tab-item-actions {
+            opacity: 0;
+            display: flex;
+            gap: 0.25rem;
+            transition: opacity 0.2s;
+        }
+
+        .tab-item:hover .tab-item-actions {
+            opacity: 1;
+        }
+
+        .tab-action-btn {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--muted-foreground);
+            padding: 0.1rem;
+        }
+
+        .tab-action-btn:hover {
+            color: var(--primary);
+        }
+
+        /* Floating action bottom panel */
+        .bottom-panel {
+            padding: 1rem 1.5rem;
+            background: var(--card);
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .restore-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius);
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--foreground);
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .btn.primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: var(--primary-foreground);
+        }
+
+        .btn.primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn:hover:not(.primary) {
+            background: var(--secondary);
+        }
+
+        .diff-tag-added {
+            border-left: 3px solid #10b981;
+            background: rgba(16, 185, 129, 0.02);
+        }
+
+        .diff-tag-removed {
+            border-left: 3px solid #ef4444;
+            background: rgba(239, 68, 68, 0.02);
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="logo-area">
+            <span class="logo-icon"><i data-lucide="layers"></i></span>
+            <span class="logo-title">Session Keeper</span>
+            <span class="logo-tag">dashboard manager</span>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+            <button class="btn"><i data-lucide="upload-cloud"></i> Exporter JSON</button>
+            <button class="btn primary"><i data-lucide="git-pull-request"></i> Restaurer la Session</button>
+        </div>
+    </header>
+
+    <!-- Workspace -->
+    <div class="workspace">
+
+        <!-- Sidebar: Session History List -->
+        <div class="sidebar">
+            <div class="search-bar">
+                <i data-lucide="search" class="search-icon" style="width: 16px; height: 16px;"></i>
+                <input type="text" class="search-input" placeholder="Rechercher une version ou un onglet...">
+            </div>
+
+            <div class="snapshot-container">
+                <div class="snapshot-row selected" data-id="5">
+                    <div class="snapshot-time-meta">
+                        <span class="time-label">14:32 (Actuelle)</span>
+                        <span class="date-label">Aujourd'hui</span>
+                    </div>
+                    <div class="snapshot-stats">
+                        <span class="badge active">42 Actifs</span>
+                        <span class="badge sleep">28 Veille</span>
+                        <span class="badge">5 Épinglés</span>
+                    </div>
+                </div>
+
+                <div class="snapshot-row" data-id="4">
+                    <div class="snapshot-time-meta">
+                        <span class="time-label">13:15</span>
+                        <span class="date-label">Aujourd'hui</span>
+                    </div>
+                    <div class="snapshot-stats">
+                        <span class="badge active">36 Actifs</span>
+                        <span class="badge sleep">24 Veille</span>
+                        <span class="badge">4 Épinglés</span>
+                    </div>
+                </div>
+
+                <div class="snapshot-row" data-id="3">
+                    <div class="snapshot-time-meta">
+                        <span class="time-label">10:00</span>
+                        <span class="date-label">Aujourd'hui</span>
+                    </div>
+                    <div class="snapshot-stats">
+                        <span class="badge active">55 Actifs</span>
+                        <span class="badge sleep">32 Veille</span>
+                        <span class="badge">5 Épinglés</span>
+                    </div>
+                </div>
+
+                <div class="snapshot-row" data-id="2">
+                    <div class="snapshot-time-meta">
+                        <span class="time-label font-bold">Hier 18:00</span>
+                        <span class="date-label">26 Juin</span>
+                    </div>
+                    <div class="snapshot-stats">
+                        <span class="badge active">80 Actifs</span>
+                        <span class="badge sleep">38 Veille</span>
+                        <span class="badge">5 Épinglés</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Central columns Dashboard -->
+        <div class="dashboard-content">
+            
+            <!-- Top Controls -->
+            <div class="timeline-navigation-top">
+                <div class="version-info">
+                    <button class="version-nav-btn" id="prev-btn"><i data-lucide="chevron-left" style="width: 16px; height: 16px;"></i></button>
+                    <div>
+                        <div style="font-weight: 700; font-size: 0.95rem;" id="current-title-time">Session du 27 Juin à 14:32</div>
+                        <div style="font-size: 0.75rem; color: var(--muted-foreground);" id="diff-status">Affichage de l'état actuel (75 onglets au total)</div>
+                    </div>
+                    <button class="version-nav-btn" id="next-btn"><i data-lucide="chevron-right" style="width: 16px; height: 16px;"></i></button>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background: var(--secondary);"><i data-lucide="git-compare" style="width: 14px; height: 14px;"></i> Comparer avec hier</button>
+                </div>
+            </div>
+
+            <!-- Categories Columns -->
+            <div class="tabs-grid">
+                
+                <!-- Column 1: Pinned Tabs -->
+                <div class="column-card">
+                    <div class="column-header">
+                        <span class="column-title" style="color: #f59e0b;"><i data-lucide="pin" style="width: 16px; height: 16px;"></i> Épinglés</span>
+                        <span class="column-count" id="count-pinned">5</span>
+                    </div>
+                    <div class="column-list">
+                        <div class="tab-item">
+                            <img class="tab-favicon" src="https://mail.google.com/favicon.ico" alt="">
+                            <div class="tab-details">
+                                <div class="tab-title">Gmail (Pro)</div>
+                                <div class="tab-url">mail.google.com/mail/u/0</div>
+                            </div>
+                        </div>
+                        <div class="tab-item">
+                            <img class="tab-favicon" src="https://github.githubassets.com/favicons/favicon.svg" alt="">
+                            <div class="tab-details">
+                                <div class="tab-title">GitHub Notifications</div>
+                                <div class="tab-url">github.com/notifications</div>
+                            </div>
+                        </div>
+                        <div class="tab-item">
+                            <img class="tab-favicon" src="https://www.notion.so/images/favicon.ico" alt="">
+                            <div class="tab-details">
+                                <div class="tab-title">Notion Workspace</div>
+                                <div class="tab-url">notion.so/my-dashboard</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Column 2: Active Tabs -->
+                <div class="column-card">
+                    <div class="column-header">
+                        <span class="column-title" style="color: #10b981;"><i data-lucide="chrome" style="width: 16px; height: 16px;"></i> Actifs</span>
+                        <span class="column-count" id="count-active">4</span>
+                    </div>
+                    <div class="column-list">
+                        <div class="tab-item diff-tag-added">
+                            <img class="tab-favicon" src="https://github.githubassets.com/favicons/favicon.svg" alt="">
+                            <div class="tab-details">
+                                <div class="tab-title">GitHub - Chrome PKsession</div>
+                                <div class="tab-url">github.com/clm/chrome-pksession</div>
+                            </div>
+                            <div class="tab-item-actions">
+                                <button class="tab-action-btn" title="Mettre en veille"><i data-lucide="moon" style="width: 14px; height: 14px;"></i></button>
+                            </div>
+                        </div>
+                        <div class="tab-item">
+                            <img class="tab-favicon" src="https://ui.shadcn.com/favicon.ico" alt="">
+                            <div class="tab-details">
+                                <div class="tab-title">Shadcn/UI Docs</div>
+                                <div class="tab-url">ui.shadcn.com/docs</div>
+                            </div>
+                            <div class="tab-item-actions">
+                                <button class="tab-action-btn" title="Mettre en veille"><i data-lucide="moon" style="width: 14px; height: 14px;"></i></button>
+                            </div>
+                        </div>
+                        <div class="tab-item">
+                            <img class="tab-favicon" src="https://www.google.com/favicon.ico" alt="">
+                            <div class="tab-details">
+                                <div class="tab-title">Google Search: Chrome tabs versioning</div>
+                                <div class="tab-url">google.com/search?q=chrome+tabs</div>
+                            </div>
+                            <div class="tab-item-actions">
+                                <button class="tab-action-btn"><i data-lucide="moon" style="width: 14px; height: 14px;"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Column 3: Sleeping Tabs -->
+                <div class="column-card">
+                    <div class="column-header">
+                        <span class="column-title" style="color: #3b82f6;"><i data-lucide="moon" style="width: 16px; height: 16px;"></i> En Veille (Sleeping)</span>
+                        <span class="column-count" id="count-sleep">3</span>
+                    </div>
+                    <div class="column-list">
+                        <div class="tab-item">
+                            <img class="tab-favicon" src="https://tailwindcss.com/favicons/favicon-16x16.png?v=3" alt="">
+                            <div class="tab-details">
+                                <div class="tab-title">Tailwind CSS Grid Docs</div>
+                                <div class="tab-url">tailwindcss.com/docs/grid</div>
+                            </div>
+                            <div class="tab-item-actions">
+                                <button class="tab-action-btn" title="Réveiller"><i data-lucide="play" style="width: 14px; height: 14px;"></i></button>
+                            </div>
+                        </div>
+                        <div class="tab-item">
+                            <img class="tab-favicon" src="https://www.figma.com/favicon.ico" alt="">
+                            <div class="tab-details">
+                                <div class="tab-title">Figma - PKsession Mockups</div>
+                                <div class="tab-url">figma.com/file/1234</div>
+                            </div>
+                            <div class="tab-item-actions">
+                                <button class="tab-action-btn" title="Réveiller"><i data-lucide="play" style="width: 14px; height: 14px;"></i></button>
+                            </div>
+                        </div>
+                        <div class="tab-item diff-tag-removed">
+                            <img class="tab-favicon" src="https://dribbble.com/favicon.ico" alt="">
+                            <div class="tab-details">
+                                <div class="tab-title">Dribbble - extension inspiration</div>
+                                <div class="tab-url">dribbble.com/search/extension</div>
+                            </div>
+                            <div class="tab-item-actions">
+                                <span style="font-size: 0.65rem; color: #ef4444; font-weight: 600;">Fermé</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Column 4: Grouped Tabs -->
+                <div class="column-card">
+                    <div class="column-header">
+                        <span class="column-title" style="color: #a855f7;"><i data-lucide="folder" style="width: 16px; height: 16px;"></i> Groupes d'onglets</span>
+                        <span class="column-count" id="count-grouped">2</span>
+                    </div>
+                    <div class="column-list">
+                        <!-- Group header -->
+                        <div style="background: rgba(168, 85, 247, 0.05); padding: 0.5rem; border-radius: 6px; border: 1px solid rgba(168, 85, 247, 0.2); margin-bottom: 0.25rem;">
+                            <div style="font-size: 0.75rem; font-weight: 700; color: #a855f7; display: flex; align-items: center; gap: 0.25rem;">
+                                <span style="width: 8px; height: 8px; border-radius: 50%; background: #a855f7;"></span>
+                                PROJET-PK (Violet)
+                            </div>
+                        </div>
+                        <div class="tab-item" style="border-left: 3px solid #a855f7;">
+                            <img class="tab-favicon" src="https://ssl.gstatic.com/images/branding/product/1x/drive_2020q4_32dp.png" alt="">
+                            <div class="tab-details">
+                                <div class="tab-title">Google Drive Planning</div>
+                                <div class="tab-url">drive.google.com/drive/folders/12</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Group header 2 -->
+                        <div style="background: rgba(236, 72, 153, 0.05); padding: 0.5rem; border-radius: 6px; border: 1px solid rgba(236, 72, 153, 0.2); margin-bottom: 0.25rem; margin-top: 0.5rem;">
+                            <div style="font-size: 0.75rem; font-weight: 700; color: #ec4899; display: flex; align-items: center; gap: 0.25rem;">
+                                <span style="width: 8px; height: 8px; border-radius: 50%; background: #ec4899;"></span>
+                                ADMIN (Rose)
+                            </div>
+                        </div>
+                        <div class="tab-item" style="border-left: 3px solid #ec4899;">
+                            <img class="tab-favicon" src="https://www.cloudflare.com/favicon.ico" alt="">
+                            <div class="tab-details">
+                                <div class="tab-title">Cloudflare Dashboard</div>
+                                <div class="tab-url">dash.cloudflare.com</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Bottom Control Panel -->
+            <div class="bottom-panel">
+                <div style="font-size: 0.85rem; color: var(--muted-foreground); display: flex; align-items: center; gap: 0.5rem;">
+                    <i data-lucide="database" style="color: #10b981; width: 16px; height: 16px;"></i>
+                    <span>Sauvegarde locale active (Fichier SQLite)</span>
+                </div>
+                <div class="restore-actions">
+                    <button class="btn"><i data-lucide="eye"></i> Inspecter les deltas</button>
+                    <button class="btn primary"><i data-lucide="arrow-right-left"></i> Restaurer la version sélectionnée</button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Interactivity -->
+    <script>
+        lucide.createIcons();
+
+        const snapshots = document.querySelectorAll('.snapshot-row');
+        const currentTitleTime = document.getElementById('current-title-time');
+        const diffStatus = document.getElementById('diff-status');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+
+        const snapshotData = {
+            "5": { title: "Session du 27 Juin à 14:32 (Actuelle)", subtitle: "Affichage de l'état actuel (75 onglets au total)", active: "42", sleep: "28", pinned: "5" },
+            "4": { title: "Session du 27 Juin à 13:15", subtitle: "Pause déjeuner (64 onglets au total)", active: "36", sleep: "24", pinned: "4" },
+            "3": { title: "Session du 27 Juin à 10:00", subtitle: "Daily Standup (92 onglets au total)", active: "55", sleep: "32", pinned: "5" },
+            "2": { title: "Session du 26 Juin à 18:00", subtitle: "Fin de journée hier (123 onglets au total)", active: "80", sleep: "38", pinned: "5" }
+        };
+
+        let currentId = 5;
+
+        function updateUI(id) {
+            snapshots.forEach(s => {
+                if (s.dataset.id == id) {
+                    s.classList.add('selected');
+                } else {
+                    s.classList.remove('selected');
+                }
+            });
+
+            const data = snapshotData[id];
+            if (data) {
+                currentTitleTime.textContent = data.title;
+                diffStatus.textContent = data.subtitle;
+                document.getElementById('count-pinned').textContent = data.pinned;
+                document.getElementById('count-active').textContent = data.active;
+                document.getElementById('count-sleep').textContent = data.sleep;
+            }
+        }
+
+        snapshots.forEach(s => {
+            s.addEventListener('click', () => {
+                currentId = parseInt(s.dataset.id);
+                updateUI(currentId);
+            });
+        });
+
+        prevBtn.addEventListener('click', () => {
+            if (currentId > 2) {
+                currentId--;
+                updateUI(currentId);
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (currentId < 5) {
+                currentId++;
+                updateUI(currentId);
+            }
+        });
+    </script>
+</body>
+</html>

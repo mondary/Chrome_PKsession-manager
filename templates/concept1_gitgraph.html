@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Keeper - Concept GitGraph</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --background: #09090b;
+            --foreground: #fafafa;
+            --card: #18181b;
+            --card-foreground: #fafafa;
+            --popover: #09090b;
+            --popover-foreground: #fafafa;
+            --primary: #3b82f6;
+            --primary-foreground: #f8fafc;
+            --secondary: #27272a;
+            --secondary-foreground: #fafafa;
+            --muted: #27272a;
+            --muted-foreground: #a1a1aa;
+            --accent: #27272a;
+            --accent-foreground: #fafafa;
+            --destructive: #ef4444;
+            --destructive-foreground: #fafafa;
+            --border: #27272a;
+            --input: #27272a;
+            --ring: #d4d4d8;
+            --radius: 0.5rem;
+            --font-sans: 'Outfit', sans-serif;
+            --font-mono: 'Fira Code', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--background);
+            color: var(--foreground);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* App Layout */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background-color: rgba(9, 9, 11, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 10;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+        }
+
+        .logo-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+        }
+
+        .logo-tag {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--primary);
+            padding: 0.2rem 0.5rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        /* Main Workspace split in GitGraph view */
+        .workspace {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Left side: Timeline Nav & Snapshots */
+        .timeline-sidebar {
+            width: 280px;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            background-color: rgba(24, 24, 27, 0.4);
+        }
+
+        .sidebar-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-title {
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--muted-foreground);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Timeline controls */
+        .timeline-slider-container {
+            padding: 1.25rem 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+        }
+
+        .slider-nav-btns {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .nav-btn {
+            background: var(--secondary);
+            border: 1px solid var(--border);
+            color: var(--foreground);
+            width: 28px;
+            height: 28px;
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .nav-btn:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .timeline-range {
+            width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 9999px;
+            background: var(--secondary);
+            outline: none;
+            cursor: pointer;
+        }
+
+        .timeline-range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+
+        .timeline-range::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Snapshot list */
+        .snapshot-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .snapshot-card {
+            padding: 0.75rem;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: var(--card);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .snapshot-card.active {
+            border-color: var(--primary);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .snapshot-card.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 25%;
+            height: 50%;
+            width: 3px;
+            background: var(--primary);
+            border-radius: 0 4px 4px 0;
+        }
+
+        .snapshot-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.25rem;
+            font-size: 0.75rem;
+        }
+
+        .snapshot-time {
+            font-weight: 600;
+            color: var(--foreground);
+        }
+
+        .snapshot-date {
+            color: var(--muted-foreground);
+        }
+
+        .snapshot-summary {
+            font-size: 0.85rem;
+            color: var(--muted-foreground);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.4rem;
+        }
+
+        .snapshot-badge {
+            font-size: 0.7rem;
+            padding: 0.1rem 0.35rem;
+            border-radius: 4px;
+            background: var(--secondary);
+            color: var(--foreground);
+        }
+
+        /* Central Panel: Git Graph Visualization */
+        .graph-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-color: #0b0b0e;
+        }
+
+        .panel-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(11, 11, 14, 0.6);
+            backdrop-filter: blur(4px);
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tab-stats-row {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .stat-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.75rem;
+            background: var(--card);
+            border: 1px solid var(--border);
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+        }
+
+        .stat-pill i {
+            font-size: 0.8rem;
+        }
+
+        .stat-pill.active i { color: #10b981; }
+        .stat-pill.sleep i { color: #3b82f6; }
+        .stat-pill.pinned i { color: #f59e0b; }
+        .stat-pill.groups i { color: #a855f7; }
+
+        /* Git Graph Visualization Canvas */
+        .graph-viewport {
+            flex: 1;
+            overflow: auto;
+            position: relative;
+            padding: 2rem;
+            display: flex;
+        }
+
+        .graph-container {
+            display: flex;
+            position: relative;
+            min-height: 100%;
+        }
+
+        /* Left part of viewport: GitGraph lines */
+        .git-svg-container {
+            width: 120px;
+            position: relative;
+        }
+
+        /* Right part of viewport: Tab nodes */
+        .nodes-container {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            position: relative;
+            z-index: 2;
+            padding-left: 10px;
+        }
+
+        .tab-lifeline-row {
+            display: flex;
+            align-items: center;
+            height: 48px; /* sync with SVG nodes placement */
+            gap: 1rem;
+        }
+
+        .tab-lifeline-branch {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--muted-foreground);
+            min-width: 80px;
+        }
+
+        .nodes-sequence {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .history-node {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--card);
+            border: 1px solid var(--border);
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            max-width: 240px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .history-node:hover {
+            border-color: var(--primary);
+            background: rgba(59, 130, 246, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .history-node.active-tab {
+            border-color: #10b981;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+        }
+
+        .history-node.closed {
+            opacity: 0.5;
+            border-style: dashed;
+        }
+
+        .node-fav {
+            width: 16px;
+            height: 16px;
+            border-radius: 2px;
+        }
+
+        .node-connector {
+            width: 24px;
+            height: 2px;
+            background: var(--border);
+            position: relative;
+        }
+
+        .node-connector::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: -3px;
+            width: 8px;
+            height: 8px;
+            border-right: 2px solid var(--border);
+            border-top: 2px solid var(--border);
+            transform: rotate(45deg);
+        }
+
+        /* Right sidebar: Inspector / Actions */
+        .inspector-sidebar {
+            width: 320px;
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            background-color: rgba(24, 24, 27, 0.6);
+        }
+
+        .inspector-content {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--muted-foreground);
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+
+        .info-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .info-header {
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
+        }
+
+        .info-icon-wrapper {
+            background: var(--secondary);
+            padding: 0.5rem;
+            border-radius: var(--radius);
+            color: var(--primary);
+        }
+
+        .info-meta-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            line-height: 1.25;
+        }
+
+        .info-meta-url {
+            font-size: 0.75rem;
+            color: var(--muted-foreground);
+            word-break: break-all;
+        }
+
+        .info-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            padding-bottom: 0.25rem;
+        }
+
+        .info-label {
+            color: var(--muted-foreground);
+        }
+
+        .info-value {
+            color: var(--foreground);
+            font-weight: 500;
+        }
+
+        .action-button {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: var(--radius);
+            background: var(--primary);
+            color: var(--primary-foreground);
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: opacity 0.2s ease;
+            font-family: var(--font-sans);
+        }
+
+        .action-button:hover {
+            opacity: 0.9;
+        }
+
+        .action-button.outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--foreground);
+        }
+
+        .action-button.outline:hover {
+            background: var(--secondary);
+        }
+
+        /* SVG styling for git lines */
+        .git-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="logo-area">
+            <span class="logo-icon"><i data-lucide="git-branch"></i></span>
+            <span class="logo-title">Session Keeper</span>
+            <span class="logo-tag">git-graph engine</span>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+            <button class="nav-btn" title="Paramètres"><i data-lucide="settings"></i></button>
+            <button class="action-button" style="padding: 0.4rem 1rem; font-size: 0.85rem;"><i data-lucide="plus"></i> Nouvelle Session</button>
+        </div>
+    </header>
+
+    <!-- Workspace -->
+    <div class="workspace">
+        
+        <!-- Timeline Navigation Sidebar -->
+        <div class="timeline-sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">
+                    <i data-lucide="clock"></i> Navigation Temporelle
+                </div>
+            </div>
+
+            <!-- Left/Right snapshot slider controls -->
+            <div class="timeline-slider-container">
+                <div class="slider-header">
+                    <span id="slider-time" style="font-weight: 600;">14:32 (Maintenant)</span>
+                    <div class="slider-nav-btns">
+                        <button class="nav-btn" id="prev-snap" title="Précédent"><i data-lucide="arrow-left"></i></button>
+                        <button class="nav-btn" id="next-snap" title="Suivant"><i data-lucide="arrow-right"></i></button>
+                    </div>
+                </div>
+                <input type="range" class="timeline-range" id="timeline-slider" min="1" max="5" value="5">
+            </div>
+
+            <!-- Snapshot history list -->
+            <div class="snapshot-list">
+                <div class="section-title" style="padding-left: 0.25rem;">Historique des points clés</div>
+                
+                <div class="snapshot-card active" data-id="5">
+                    <div class="snapshot-meta">
+                        <span class="snapshot-time">14:32</span>
+                        <span class="snapshot-date">Aujourd'hui</span>
+                    </div>
+                    <div class="snapshot-summary">
+                        <span class="snapshot-badge">78 onglets</span>
+                        <span>Dernier point clé</span>
+                    </div>
+                </div>
+
+                <div class="snapshot-card" data-id="4">
+                    <div class="snapshot-meta">
+                        <span class="snapshot-time">13:15</span>
+                        <span class="snapshot-date">Aujourd'hui</span>
+                    </div>
+                    <div class="snapshot-summary">
+                        <span class="snapshot-badge">64 onglets</span>
+                        <span>Pause déjeuner</span>
+                    </div>
+                </div>
+
+                <div class="snapshot-card" data-id="3">
+                    <div class="snapshot-meta">
+                        <span class="snapshot-time">10:00</span>
+                        <span class="snapshot-date">Aujourd'hui</span>
+                    </div>
+                    <div class="snapshot-summary">
+                        <span class="snapshot-badge">92 onglets</span>
+                        <span>Daily Standup</span>
+                    </div>
+                </div>
+
+                <div class="snapshot-card" data-id="2">
+                    <div class="snapshot-meta">
+                        <span class="snapshot-time">Hier 18:00</span>
+                        <span class="snapshot-date">26 Juin</span>
+                    </div>
+                    <div class="snapshot-summary">
+                        <span class="snapshot-badge">123 onglets</span>
+                        <span>Fin de journée</span>
+                    </div>
+                </div>
+
+                <div class="snapshot-card" data-id="1">
+                    <div class="snapshot-meta">
+                        <span class="snapshot-time">Hier 14:00</span>
+                        <span class="snapshot-date">26 Juin</span>
+                    </div>
+                    <div class="snapshot-summary">
+                        <span class="snapshot-badge">110 onglets</span>
+                        <span>Recherche UX</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Central GitGraph Visualizer -->
+        <div class="graph-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i data-lucide="git-commit"></i>
+                    Arbre des Lignes de Vie des Onglets
+                </div>
+                
+                <div class="tab-stats-row">
+                    <div class="stat-pill active">
+                        <i data-lucide="chrome"></i> <span>42 Actifs</span>
+                    </div>
+                    <div class="stat-pill sleep">
+                        <i data-lucide="moon"></i> <span>28 En veille</span>
+                    </div>
+                    <div class="stat-pill pinned">
+                        <i data-lucide="pin"></i> <span>5 Épinglés</span>
+                    </div>
+                    <div class="stat-pill groups">
+                        <i data-lucide="folder"></i> <span>3 Groupes</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Viewport displaying Git Lines + Nodes -->
+            <div class="graph-viewport">
+                <div class="graph-container">
+                    
+                    <!-- SVG Git graph lines -->
+                    <div class="git-svg-container">
+                        <svg class="git-svg">
+                            <!-- Branch Lines -->
+                            <path d="M 30,24 L 30,312" stroke="#ef4444" stroke-width="2" fill="none" />
+                            <path d="M 30,24 Q 60,24 60,96 L 60,312" stroke="#3b82f6" stroke-width="2" fill="none" />
+                            <path d="M 60,96 Q 90,96 90,168 L 90,240" stroke="#10b981" stroke-width="2" fill="none" />
+                            
+                            <!-- Git Nodes Indicators -->
+                            <!-- Branch 1 (Red) -->
+                            <circle cx="30" cy="24" r="5" fill="#ef4444" stroke="#0b0b0e" stroke-width="2" />
+                            <circle cx="30" cy="96" r="5" fill="#ef4444" stroke="#0b0b0e" stroke-width="2" />
+                            <circle cx="30" cy="168" r="5" fill="#ef4444" stroke="#0b0b0e" stroke-width="2" />
+                            <circle cx="30" cy="240" r="5" fill="#ef4444" stroke="#0b0b0e" stroke-width="2" />
+                            <circle cx="30" cy="312" r="5" fill="#ef4444" stroke="#0b0b0e" stroke-width="2" />
+
+                            <!-- Branch 2 (Blue) -->
+                            <circle cx="60" cy="96" r="5" fill="#3b82f6" stroke="#0b0b0e" stroke-width="2" />
+                            <circle cx="60" cy="168" r="5" fill="#3b82f6" stroke="#0b0b0e" stroke-width="2" />
+                            <circle cx="60" cy="312" r="5" fill="#3b82f6" stroke="#0b0b0e" stroke-width="2" />
+
+                            <!-- Branch 3 (Green) -->
+                            <circle cx="90" cy="168" r="5" fill="#10b981" stroke="#0b0b0e" stroke-width="2" />
+                            <circle cx="90" cy="240" r="5" fill="#10b981" stroke="#0b0b0e" stroke-width="2" />
+                        </svg>
+                    </div>
+
+                    <!-- Nodes matching coordinates -->
+                    <div class="nodes-container">
+                        
+                        <!-- Row 1 (Tab Main Line) -->
+                        <div class="tab-lifeline-row">
+                            <span class="tab-lifeline-branch" style="color: #ef4444;">ong-dev-1</span>
+                            <div class="nodes-sequence">
+                                <div class="history-node active-tab" data-title="GitHub - Chrome PKsession-manager" data-url="github.com/clm/chrome-pksession" data-time="14:32" data-type="Actif" data-branch="ong-dev-1" data-visits="14">
+                                    <img class="node-fav" src="https://github.githubassets.com/favicons/favicon.svg" alt="">
+                                    <span>GitHub - PKsession-manager</span>
+                                </div>
+                                <div class="node-connector"></div>
+                                <div class="history-node" data-title="Google Search: chrome extension storage api" data-url="google.com/search?q=chrome+extension+storage" data-time="14:10" data-type="Actif" data-branch="ong-dev-1" data-visits="1">
+                                    <img class="node-fav" src="https://www.google.com/favicon.ico" alt="">
+                                    <span>Search: chrome extension...</span>
+                                </div>
+                                <div class="node-connector"></div>
+                                <div class="history-node" data-title="Stack Overflow - Save JSON to file chrome extension" data-url="stackoverflow.com/questions/1234" data-time="13:58" data-type="Actif" data-branch="ong-dev-1" data-visits="2">
+                                    <img class="node-fav" src="https://stackoverflow.com/favicon.ico" alt="">
+                                    <span>StackOverflow: Save JSON...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 2 (Tab Branch 2) -->
+                        <div class="tab-lifeline-row">
+                            <span class="tab-lifeline-branch" style="color: #3b82f6;">ong-ux-2</span>
+                            <div class="nodes-sequence">
+                                <div class="history-node" data-title="Shadcn/UI - Components introduction" data-url="ui.shadcn.com/docs/components" data-time="14:25" data-type="En veille" data-branch="ong-ux-2" data-visits="8">
+                                    <img class="node-fav" src="https://ui.shadcn.com/favicon.ico" alt="">
+                                    <span>Shadcn/UI - Components</span>
+                                </div>
+                                <div class="node-connector"></div>
+                                <div class="history-node" data-title="TailwindCSS Docs - Grid Layout" data-url="tailwindcss.com/docs/grid-template-columns" data-time="14:15" data-type="En veille" data-branch="ong-ux-2" data-visits="3">
+                                    <img class="node-fav" src="https://tailwindcss.com/favicons/favicon-16x16.png?v=3" alt="">
+                                    <span>Tailwind CSS Grid Docs</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 3 (Tab Branch 3) -->
+                        <div class="tab-lifeline-row">
+                            <span class="tab-lifeline-branch" style="color: #10b981;">ong-ref-3</span>
+                            <div class="nodes-sequence">
+                                <div class="history-node closed" data-title="Figma - PKsession UX Mockups" data-url="figma.com/file/12345/pksession" data-time="13:40 (Fermé)" data-type="Fermé" data-branch="ong-ref-3" data-visits="22">
+                                    <img class="node-fav" src="https://www.figma.com/favicon.ico" alt="">
+                                    <span>Figma - Mockups (Fermé)</span>
+                                </div>
+                                <div class="node-connector"></div>
+                                <div class="history-node closed" data-title="Dribbble - Extension UI Dashboard" data-url="dribbble.com/search/extension" data-time="13:20 (Fermé)" data-type="Fermé" data-branch="ong-ref-3" data-visits="5">
+                                    <img class="node-fav" src="https://dribbble.com/favicon.ico" alt="">
+                                    <span>Dribbble - extension dashboard</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 4 (Tab Main Line continuing) -->
+                        <div class="tab-lifeline-row">
+                            <span class="tab-lifeline-branch" style="color: #ef4444;">ong-dev-1</span>
+                            <div class="nodes-sequence">
+                                <div class="history-node" data-title="Chrome Developers - Manifest V3" data-url="developer.chrome.com/docs/extensions/mv3" data-time="10:30" data-type="Actif" data-branch="ong-dev-1" data-visits="11">
+                                    <img class="node-fav" src="https://developer.chrome.com/images/meta/favicon-32x32.png" alt="">
+                                    <span>Chrome Dev Docs: MV3</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 5 (Group Branch) -->
+                        <div class="tab-lifeline-row">
+                            <span class="tab-lifeline-branch" style="color: #a855f7;">[PROJET-PK]</span>
+                            <div class="nodes-sequence">
+                                <div class="history-node" data-title="Google Drive - Project Planning PK" data-url="drive.google.com/drive/folders/12" data-time="09:15" data-type="Groupe (Violet)" data-branch="[PROJET-PK]" data-visits="1">
+                                    <img class="node-fav" src="https://ssl.gstatic.com/images/branding/product/1x/drive_2020q4_32dp.png" alt="">
+                                    <span>Google Drive Planning</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Details Inspector -->
+        <div class="inspector-sidebar">
+            <div class="inspector-content">
+                <div>
+                    <div class="section-title">Onglet Sélectionné</div>
+                    
+                    <div class="info-card">
+                        <div class="info-header">
+                            <div class="info-icon-wrapper" id="inspect-icon-wrapper">
+                                <i data-lucide="chrome"></i>
+                            </div>
+                            <div>
+                                <div class="info-meta-title" id="inspect-title">GitHub - Chrome PKsession-manager</div>
+                                <div class="info-meta-url" id="inspect-url">github.com/clm/chrome-pksession</div>
+                            </div>
+                        </div>
+
+                        <div class="info-list">
+                            <div class="info-item">
+                                <span class="info-label">Statut</span>
+                                <span class="info-value" id="inspect-status" style="color: #10b981;">Actif</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Dernier accès</span>
+                                <span class="info-value" id="inspect-time">14:32</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Nombre de visites</span>
+                                <span class="info-value" id="inspect-visits">14 pages</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Branche de vie</span>
+                                <span class="info-value" id="inspect-branch" style="font-family: var(--font-mono); font-size: 0.75rem;">ong-dev-1</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="section-title">Actions Rapides</div>
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        <button class="action-button"><i data-lucide="external-link"></i> Ouvrir l'onglet</button>
+                        <button class="action-button outline"><i data-lucide="corner-up-left"></i> Restaurer la branche</button>
+                        <button class="action-button outline" style="color: #ef4444; border-color: rgba(239,68,68,0.2);"><i data-lucide="trash-2"></i> Supprimer de l'arbre</button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="section-title">Stockage Local</div>
+                    <div class="info-card" style="border-style: dashed; padding: 0.75rem; font-size: 0.8rem; color: var(--muted-foreground);">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; color: var(--foreground); font-weight: 500;">
+                            <i data-lucide="database" style="color: #10b981; width: 16px; height: 16px;"></i>
+                            Fichier SQLITE Actif
+                        </div>
+                        Sauvegarde locale automatique active sous <code>~/.session-keeper/sessions.sqlite</code>. Versioning delta toutes les 15 minutes.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Script interactivity -->
+    <script>
+        // Init Lucide
+        lucide.createIcons();
+
+        // Node click handler
+        const nodes = document.querySelectorAll('.history-node');
+        const inspectTitle = document.getElementById('inspect-title');
+        const inspectUrl = document.getElementById('inspect-url');
+        const inspectStatus = document.getElementById('inspect-status');
+        const inspectTime = document.getElementById('inspect-time');
+        const inspectVisits = document.getElementById('inspect-visits');
+        const inspectBranch = document.getElementById('inspect-branch');
+        const inspectIconWrapper = document.getElementById('inspect-icon-wrapper');
+
+        nodes.forEach(node => {
+            node.addEventListener('click', () => {
+                // Remove active styling from all nodes
+                nodes.forEach(n => n.classList.remove('active-tab'));
+                node.classList.add('active-tab');
+
+                // Update Inspector
+                const title = node.dataset.title;
+                const url = node.dataset.url;
+                const time = node.dataset.time;
+                const type = node.dataset.type;
+                const branch = node.dataset.branch;
+                const visits = node.dataset.visits;
+
+                inspectTitle.textContent = title;
+                inspectUrl.textContent = url;
+                inspectStatus.textContent = type;
+                inspectTime.textContent = time;
+                inspectVisits.textContent = visits + " pages";
+                inspectBranch.textContent = branch;
+
+                // Colorize badge in status
+                if (type === 'Actif') {
+                    inspectStatus.style.color = '#10b981';
+                } else if (type === 'En veille') {
+                    inspectStatus.style.color = '#3b82f6';
+                } else if (type === 'Fermé') {
+                    inspectStatus.style.color = '#ef4444';
+                } else {
+                    inspectStatus.style.color = '#a855f7';
+                }
+            });
+        });
+
+        // Timeline Slider navigation
+        const slider = document.getElementById('timeline-slider');
+        const sliderTime = document.getElementById('slider-time');
+        const prevBtn = document.getElementById('prev-snap');
+        const nextBtn = document.getElementById('next-snap');
+        const snapshotCards = document.querySelectorAll('.snapshot-card');
+
+        const times = [
+            "Hier 14:00",
+            "Hier 18:00",
+            "Aujourd'hui 10:00",
+            "Aujourd'hui 13:15",
+            "Aujourd'hui 14:32 (Maintenant)"
+        ];
+
+        function updateSliderUI(val) {
+            sliderTime.textContent = times[val - 1];
+            snapshotCards.forEach(card => {
+                if (card.dataset.id == val) {
+                    card.classList.add('active');
+                    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                } else {
+                    card.classList.remove('active');
+                }
+            });
+        }
+
+        slider.addEventListener('input', (e) => {
+            updateSliderUI(e.target.value);
+        });
+
+        prevBtn.addEventListener('click', () => {
+            let val = parseInt(slider.value);
+            if (val > 1) {
+                slider.value = val - 1;
+                updateSliderUI(slider.value);
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            let val = parseInt(slider.value);
+            if (val < 5) {
+                slider.value = val + 1;
+                updateSliderUI(slider.value);
+            }
+        });
+
+        snapshotCards.forEach(card => {
+            card.addEventListener('click', () => {
+                const id = card.dataset.id;
+                slider.value = id;
+                updateSliderUI(id);
+            });
+        });
+    </script>
+</body>
+</html>
