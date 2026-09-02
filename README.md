@@ -12,6 +12,7 @@ PK Session conserve vos espaces Chrome comme des sessions vivantes, versionnées
 - Identité durable de chaque onglet et historique complet de ses navigations.
 - Relations parent/enfant entre les onglets ouverts depuis une page.
 - Trois vues complémentaires : Espace, Parcours et Origines.
+- Aperçu de page au survol, favicon, titre, URL et fermeture directe pour chaque onglet actif.
 - Badge de l’icône synchronisé avec le nombre d’onglets web ouverts.
 - Stockage local dans IndexedDB, sans compte, API distante ni télémétrie.
 
@@ -51,6 +52,10 @@ Le build décompressé se trouve dans `v2/extension-build/chrome-mv3`.
 - `v2/src/App.tsx` : vues Espace, Parcours et Origines.
 - `templates/` : concepts visuels ayant guidé la V2.
 - `archive/v1` : branche d’archive de la V1.
+
+## Confidentialité
+
+La permission d’accès aux pages sert uniquement à capturer localement l’aperçu de l’onglet lorsqu’il devient actif. Les miniatures restent dans IndexedDB et ne sont jamais envoyées à un service distant.
 
 ## Historique
 

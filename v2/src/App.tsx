@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useState } from 'react';
 import {
-  ArrowLeft, ArrowRight, Blocks, Box, Check, ChevronDown, CircleDot, Clock3,
-  Command, ExternalLink, GitBranch, History, Layers3, Network, PanelRightClose,
+  ArrowLeft, ArrowRight, Blocks, Box, Check, ChevronDown,
+  Command, ExternalLink, GitBranch, History, Layers3, Monitor, Network,
   Pin, Plus, RotateCcw, Search, Settings2, Sparkles, X,
 } from 'lucide-react';
 import { versions as demoVersions, visits as demoVisits, workspace } from './demo';
@@ -18,7 +18,7 @@ const relativeDate = (date: number) => {
 
 function Favicon({ tab }: { tab: TabState }) {
   const letter = domainOf(tab.url).charAt(0).toUpperCase();
-  return <span className="favicon" aria-hidden="true">{letter}</span>;
+  return <span className="favicon" aria-hidden="true">{letter}{tab.favicon && <img src={tab.favicon} alt="" onError={(event) => event.currentTarget.remove()} />}</span>;
 }
 
 function VersionRail({ versions, selected, onSelect, onCreate }: { versions: SessionVersion[]; selected: SessionVersion; onSelect: (version: SessionVersion) => void; onCreate: () => void }) {
@@ -75,9 +75,11 @@ function Inspector({ tab, visits, onClose, onOpen }: { tab: TabState; visits: Ta
   );
 }
 
-function WorkspaceView({ version, previous, query, selectedTab, onSelectTab }: { version: SessionVersion; previous?: SessionVersion; query: string; selectedTab?: TabState; onSelectTab: (tab: TabState) => void }) {
+function WorkspaceView({ version, previous, query, selectedTab, isCurrent, onSelectTab, onCloseTab }: { version: SessionVersion; previous?: SessionVersion; query: string; selectedTab?: TabState; isCurrent: boolean; onSelectTab: (tab: TabState) => void; onCloseTab: (tab: TabState) => void }) {
+  const [hoveredId, setHoveredId] = useState<string>();
   const normalized = query.toLowerCase();
   const tabs = version.state.tabs.filter((tab) => `${tab.title} ${tab.url}`.toLowerCase().includes(normalized));
+  const preview = tabs.find((tab) => tab.id === hoveredId) ?? tabs[0];
   const diff = diffVersions(previous, version);
   const changedIds = new Set([...diff.added, ...diff.changed].map((tab) => tab.id));
   const sections = [
@@ -94,21 +96,33 @@ function WorkspaceView({ version, previous, query, selectedTab, onSelectTab }: {
           <span className="delta removed">−{diff.removed.length}<small>fermés</small></span>
         </div>
       </div>
-      <div className="group-grid">
-        {sections.map((section) => (
-          <section className="group" key={section.id}>
-            <header><span className={`group-dot ${section.color}`} /><strong>{section.title}</strong><b>{section.tabs.length}</b><ChevronDown size={14} /></header>
-            <div className="group-tabs">
-              {section.tabs.map((tab) => (
-                <button className={`tab-card ${selectedTab?.id === tab.id ? 'selected' : ''}`} key={tab.id} onClick={() => onSelectTab(tab)}>
-                  <Favicon tab={tab} />
-                  <span className="tab-copy"><strong>{tab.title}</strong><small>{domainOf(tab.url)}</small></span>
-                  <span className="tab-status">{changedIds.has(tab.id) && <i title="Modifié depuis la version précédente" />}{tab.pinned && <Pin size={12} />}{tab.sleeping && <span className="sleep">veille</span>}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-        ))}
+      <div className="session-stage">
+        <aside className="tab-preview" aria-live="polite">
+          <div className="thumbnail">
+            {preview?.thumbnail ? <img src={preview.thumbnail} alt={`Aperçu de ${preview.title}`} /> : <span><Monitor size={24} /><small>Visitez l’onglet pour générer son aperçu</small></span>}
+          </div>
+          {preview && <div className="preview-copy"><Favicon tab={preview} /><span><strong>{preview.title}</strong><small>{preview.url}</small></span></div>}
+        </aside>
+        <div className="session-list">
+          {sections.map((section) => (
+            <section className="tab-group" key={section.id}>
+              <header><span className={`group-dot ${section.color}`} /><strong>{section.title}</strong><b>{section.tabs.length}</b><ChevronDown size={14} /></header>
+              <div>
+                {section.tabs.map((tab) => (
+                  <article className={`tab-row ${selectedTab?.id === tab.id ? 'selected' : ''}`} key={tab.id} onMouseEnter={() => setHoveredId(tab.id)} onFocus={() => setHoveredId(tab.id)}>
+                    <button className="tab-open" onClick={() => onSelectTab(tab)}>
+                      <Favicon tab={tab} />
+                      <span className="tab-copy"><strong>{tab.title}</strong><small>{tab.url}</small></span>
+                    </button>
+                    <span className="tab-domain">{domainOf(tab.url)}</span>
+                    <span className="tab-status">{changedIds.has(tab.id) && <i title="Modifié depuis la version précédente" />}{tab.pinned && <Pin size={12} />}{tab.sleeping && <span className="sleep">veille</span>}</span>
+                    {isCurrent && tab.runtimeId != null && <button className="tab-close" aria-label={`Fermer ${tab.title}`} onClick={() => onCloseTab(tab)}><X size={14} /></button>}
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -181,11 +195,13 @@ export function App() {
     return response.value as T;
   };
   const reloadData = async () => {
-    const [storedVersions, storedVisits] = await Promise.all([db.versions.orderBy('number').toArray(), db.visits.orderBy('at').toArray()]);
+    const [storedVersions, storedVisits, storedTabs] = await Promise.all([db.versions.orderBy('number').toArray(), db.visits.orderBy('at').toArray(), db.tabs.toArray()]);
     if (!storedVersions.length) return;
-    setVersions(storedVersions);
+    const tabMetadata = new Map(storedTabs.map((tab) => [tab.id, tab]));
+    const hydratedVersions = storedVersions.map((item) => ({ ...item, state: { ...item.state, tabs: item.state.tabs.map((tab) => ({ ...tab, thumbnail: tabMetadata.get(tab.id)?.thumbnail })) } }));
+    setVersions(hydratedVersions);
     setVisitData(storedVisits);
-    setVersion((current) => storedVersions.find((item) => item.id === current.id) ?? storedVersions.at(-1)!);
+    setVersion((current) => hydratedVersions.find((item) => item.id === current.id) ?? hydratedVersions.at(-1)!);
   };
   useEffect(() => {
     const reload = () => void reloadData();
@@ -206,6 +222,12 @@ export function App() {
   };
   const capture = async () => { await send({ type: 'CAPTURE_VERSION', reason: 'manual' }); await reloadData(); };
   const openTab = async (tab: TabState) => { await send({ type: 'OPEN_TAB', tabId: tab.id, url: tab.url }); };
+  const closeTab = async (tab: TabState) => {
+    if (tab.runtimeId == null) return;
+    await send({ type: 'CLOSE_TAB', runtimeId: tab.runtimeId });
+    await send({ type: 'CAPTURE_VERSION', reason: 'manual' });
+    await reloadData();
+  };
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -231,7 +253,7 @@ export function App() {
           </div>
           <div className={`content-grid ${selectedTab ? 'with-inspector' : ''}`}>
             <div className="content-canvas">
-              {view === 'workspace' && <WorkspaceView version={version} previous={previous} query={deferredQuery} selectedTab={selectedTab} onSelectTab={setSelectedTab} />}
+              {view === 'workspace' && <WorkspaceView version={version} previous={previous} query={deferredQuery} selectedTab={selectedTab} isCurrent={versionIndex === versions.length - 1} onSelectTab={setSelectedTab} onCloseTab={(tab) => void closeTab(tab)} />}
               {view === 'lifelines' && <LifelinesView version={version} visits={visitData} onSelectTab={setSelectedTab} />}
               {view === 'map' && <MapView version={version} onSelectTab={setSelectedTab} />}
             </div>

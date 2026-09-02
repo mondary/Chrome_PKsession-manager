@@ -1,4 +1,4 @@
-import { captureVersion, recordClosed, recordVisit, restoreVersion } from '@/engine';
+import { captureThumbnail, captureVersion, recordClosed, recordVisit, restoreVersion } from '@/engine';
 import { isTrackableUrl, type RuntimeRequest } from '@/model';
 import { defineBackground } from 'wxt/utils/define-background';
 
@@ -25,6 +25,7 @@ export default defineBackground(() => {
   chrome.runtime.onInstalled.addListener(() => { void captureVersion('startup'); void updateBadge(); });
   chrome.runtime.onStartup.addListener(() => { void captureVersion('startup'); void updateBadge(); });
   chrome.tabs.onCreated.addListener((tab) => { void recordVisit(tab, 'created'); void updateBadge(); scheduleCapture(); });
+  chrome.tabs.onActivated.addListener(({ tabId }) => { void captureThumbnail(tabId).catch(() => undefined); });
   chrome.tabs.onRemoved.addListener((tabId) => { void recordClosed(tabId); void updateBadge(); scheduleCapture(); });
   chrome.tabs.onMoved.addListener(scheduleCapture);
   chrome.tabs.onUpdated.addListener((_id, change, tab) => { if (change.pinned != null || change.discarded != null || change.groupId != null) scheduleCapture(); });
@@ -39,6 +40,7 @@ export default defineBackground(() => {
   chrome.runtime.onMessage.addListener((request: RuntimeRequest, _sender, sendResponse) => {
     const action = request.type === 'CAPTURE_VERSION' ? captureVersion(request.reason ?? 'manual')
       : request.type === 'RESTORE_VERSION' ? restoreVersion(request.versionId)
+      : request.type === 'CLOSE_TAB' ? chrome.tabs.remove(request.runtimeId)
       : dbOpen(request.tabId, request.url);
     void action.then((value) => sendResponse({ ok: true, value })).catch((error: Error) => sendResponse({ ok: false, error: error.message }));
     return true;

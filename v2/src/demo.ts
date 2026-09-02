@@ -7,7 +7,7 @@ const groups: TabGroup[] = [
   { id: 'research', title: 'Research', color: 'purple', collapsed: false },
   { id: 'admin', title: 'Admin', color: 'orange', collapsed: false },
 ];
-const makeTab = (id: string, title: string, url: string, index: number, extra: Partial<TabState> = {}): TabState => ({ id, title, url, index, pinned: false, sleeping: false, active: false, ...extra });
+const makeTab = (id: string, title: string, url: string, index: number, extra: Partial<TabState> = {}): TabState => ({ id, runtimeId: 100 + index, title, url, favicon: `${new URL(url).origin}/favicon.ico`, index, pinned: false, sleeping: false, active: false, ...extra });
 const catalog = [
   makeTab('roadmap', 'Product roadmap', 'https://notion.so/product-roadmap', 0, { groupId: 'build', pinned: true }),
   makeTab('repo', 'PK Session Manager', 'https://github.com/pk/session-manager', 1, { groupId: 'build', active: true, parentId: 'roadmap' }),

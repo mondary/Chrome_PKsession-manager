@@ -43,6 +43,17 @@ export async function recordClosed(runtimeId: number) {
   await chrome.storage.session.set({ tabIdentities: mapping });
 }
 
+export async function captureThumbnail(runtimeId: number) {
+  const tab = await chrome.tabs.get(runtimeId);
+  if (!isTrackableUrl(tab.url ?? tab.pendingUrl) || tab.incognito) return;
+  const logical = await logicalTab(tab);
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  const [active] = await chrome.tabs.query({ active: true, windowId: tab.windowId });
+  if (active?.id !== runtimeId) return;
+  const thumbnail = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'jpeg', quality: 55 });
+  await db.tabs.update(logical.id, { thumbnail });
+}
+
 async function buildState(): Promise<SessionState> {
   const windows = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
   const state: SessionState = { groups: [], tabs: [] };
@@ -54,7 +65,7 @@ async function buildState(): Promise<SessionState> {
       const url = tab.url ?? tab.pendingUrl ?? '';
       if (!isTrackableUrl(url) || tab.incognito) continue;
       const logical = await logicalTab(tab);
-      state.tabs.push({ id: logical.id, parentId: logical.parentId, runtimeId: tab.id, windowId: tab.windowId, title: tab.title ?? url, url, favicon: tab.favIconUrl, index: tab.index, groupId: tab.groupId >= 0 ? String(tab.groupId) : undefined, pinned: tab.pinned, sleeping: tab.discarded || Boolean(tab.frozen), active: tab.active });
+      state.tabs.push({ id: logical.id, parentId: logical.parentId, runtimeId: tab.id, windowId: tab.windowId, title: tab.title ?? url, url, favicon: tab.favIconUrl, thumbnail: logical.thumbnail, index: tab.index, groupId: tab.groupId >= 0 ? String(tab.groupId) : undefined, pinned: tab.pinned, sleeping: tab.discarded || Boolean(tab.frozen), active: tab.active });
     }
   }
   return state;

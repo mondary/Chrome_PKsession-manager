@@ -6,7 +6,7 @@ Historique des versions de PK Session.
 
 ## TODO — Roadmap
 
-Statut : `2026.09.01` (nouvelle architecture V2)
+Statut : `2026.09.02` (interface dense et aperçus)
 
 ### V2 — Sessions vivantes
 - [x] Séparer les espaces, versions immuables et identités d’onglets.
@@ -17,6 +17,15 @@ Statut : `2026.09.01` (nouvelle architecture V2)
 ---
 
 ## Releases
+
+### [2026.09.02] - 2026-09-02
+#### Added
+- Aperçu de page au survol, vrais favicons et fermeture directe des onglets actifs.
+- Capture locale des miniatures lorsqu’un onglet devient actif.
+
+#### Changed
+- Vue Espace recomposée en aperçu fixe et liste dense inspirée de Tablerone.
+- Meilleure utilisation de la surface pour les sessions contenant de nombreux onglets.
 
 ### [2026.09.01] - 2026-09-02
 #### Added
