@@ -12,6 +12,7 @@ PK Session preserves your Chrome workspaces as living sessions that are automati
 - Durable identity for every tab and a complete navigation history.
 - Parent/child relationships between tabs opened from another page.
 - Two complementary views: Workspace and Timeline.
+- Multiple independent sessions can be saved and reopened from the left rail.
 - Hover page preview, favicon, title, URL, and direct close action for every active tab.
 - Extension icon badge synchronized with the number of open web tabs.
 - Local IndexedDB storage with no account, remote API, or telemetry.
@@ -27,6 +28,7 @@ PK Session preserves your Chrome workspaces as living sessions that are automati
 - `Cmd/Ctrl+K` focuses search, and the Settings button opens a dedicated drawer.
 - Settings provide manual JSON export and import for all local data.
 - **Create a restoration point** deliberately preserves the current state, even when no tab has changed.
+- Switching sessions saves and closes the current session before restoring the selected one.
 
 ## Build
 

@@ -1,12 +1,12 @@
 import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft, ArrowRight, Blocks, Box, Check, ChevronDown,
-  Command, Download, ExternalLink, GitBranch, History, Monitor,
+  Command, Download, ExternalLink, GitBranch, History, Layers3, Monitor,
   Pin, Plus, RotateCcw, Search, Settings2, Sparkles, Upload, X,
 } from 'lucide-react';
 import { versions as demoVersions, visits as demoVisits, workspace } from './demo';
 import { db } from './db';
-import { compactVersions, diffVersions, domainOf, isSessionBackup, relatedTabIds, type RuntimeRequest, type SessionBackup, type SessionVersion, type TabState, type TabVisit } from './model';
+import { compactVersions, diffVersions, domainOf, isSessionBackup, relatedTabIds, type RuntimeRequest, type SessionBackup, type SessionVersion, type TabState, type TabVisit, type Workspace } from './model';
 
 type View = 'workspace' | 'timeline';
 
@@ -21,10 +21,15 @@ function Favicon({ tab }: { tab: TabState }) {
   return <span className="favicon" aria-hidden="true">{letter}{tab.favicon && <img src={tab.favicon} alt="" onError={(event) => event.currentTarget.remove()} />}</span>;
 }
 
-function VersionRail({ versions, selected, onSelect, onCreate }: { versions: SessionVersion[]; selected: SessionVersion; onSelect: (version: SessionVersion) => void; onCreate: () => void }) {
+function VersionRail({ workspaces, activeWorkspaceId, versions, selected, onSwitch, onSelect, onCreate, onNew }: { workspaces: Workspace[]; activeWorkspaceId: string; versions: SessionVersion[]; selected: SessionVersion; onSwitch: (id: string) => void; onSelect: (version: SessionVersion) => void; onCreate: () => void; onNew: () => void }) {
   return (
     <aside className="version-rail">
-      <div className="rail-label"><History size={13} /> Versions</div>
+      <div className="rail-label"><Layers3 size={13} /> Sessions</div>
+      <div className="workspace-list">
+        {workspaces.map((item) => <button className={`workspace-card ${item.id === activeWorkspaceId ? 'selected' : ''}`} key={item.id} onClick={() => onSwitch(item.id)}><span className="live-dot" /><strong>{item.name}</strong><small>{item.id === activeWorkspaceId ? 'session active' : 'session sauvegardée'}</small></button>)}
+      </div>
+      <button className="new-workspace" onClick={onNew}><Plus size={13} /> Nouvelle session</button>
+      <div className="rail-label version-label"><History size={13} /> Points de restauration</div>
       <div className="version-list">
         {[...versions].reverse().map((version, index) => {
           const previous = versions[versions.indexOf(version) - 1];
@@ -185,6 +190,8 @@ function TimelineView({ versions, selected, visits, focusedId, onSelectTab, onSe
 
 export function App() {
   const [versions, setVersions] = useState(demoVersions);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([workspace]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(workspace.id);
   const [visitData, setVisitData] = useState(demoVisits);
   const [view, setView] = useState<View>('workspace');
   const [version, setVersion] = useState(demoVersions.at(-1)!);
@@ -212,10 +219,15 @@ export function App() {
   };
   const reloadData = async (selectLatest = false) => {
     const followLatest = selectLatest || selectedVersionRef.current === latestVersionRef.current;
-    const [storedVersions, storedVisits, storedTabs] = await Promise.all([db.versions.orderBy('number').toArray(), db.visits.orderBy('at').toArray(), db.tabs.toArray()]);
+    const [storedVersions, storedVisits, storedTabs, storedWorkspaces] = await Promise.all([db.versions.orderBy('number').toArray(), db.visits.orderBy('at').toArray(), db.tabs.toArray(), db.workspaces.toArray()]);
     if (!storedVersions.length) return;
+    const currentWorkspaceId = hasRuntime ? ((await chrome.storage.local.get('activeWorkspaceId')).activeWorkspaceId as string | undefined) ?? 'default' : 'default';
+    const currentVersions = storedVersions.filter((item) => (item.workspaceId ?? 'default') === currentWorkspaceId);
+    if (!currentVersions.length) return;
+    setActiveWorkspaceId(currentWorkspaceId);
+    setWorkspaces(storedWorkspaces.length ? storedWorkspaces : [workspace]);
     const tabMetadata = new Map(storedTabs.map((tab) => [tab.id, tab]));
-    const hydratedVersions = compactVersions(storedVersions).map((item) => ({ ...item, state: { ...item.state, tabs: item.state.tabs.map((tab) => ({ ...tab, thumbnail: tabMetadata.get(tab.id)?.thumbnail })) } }));
+    const hydratedVersions = compactVersions(currentVersions).map((item) => ({ ...item, state: { ...item.state, tabs: item.state.tabs.map((tab) => ({ ...tab, thumbnail: tabMetadata.get(tab.id)?.thumbnail })) } }));
     setVersions(hydratedVersions);
     setVisitData(storedVisits);
     setVersion((current) => followLatest ? hydratedVersions.at(-1)! : hydratedVersions.find((item) => item.id === current.id) ?? hydratedVersions.at(-1)!);
@@ -288,6 +300,21 @@ export function App() {
     setNotice('Point de restauration créé.');
     window.setTimeout(() => setNotice(''), 3200);
   };
+  const switchSession = async (id: string) => {
+    if (id === activeWorkspaceId) return;
+    if (!window.confirm('Sauvegarder puis fermer les onglets de la session actuelle ?')) return;
+    await send({ type: 'SWITCH_WORKSPACE', workspaceId: id });
+    await reloadData(true);
+    setSelectedTab(undefined);
+  };
+  const newSession = async () => {
+    const name = window.prompt('Nom de la nouvelle session', 'Session personnelle')?.trim();
+    if (!name) return;
+    if (!window.confirm('Sauvegarder puis fermer les onglets de la session actuelle ?')) return;
+    await send({ type: 'CREATE_WORKSPACE', name });
+    await reloadData(true);
+    setSelectedTab(undefined);
+  };
   const openTab = async (tab: TabState) => { await send({ type: 'ACTIVATE_TAB', runtimeId: tab.runtimeId, windowId: tab.windowId, url: tab.url }); };
   const closeTab = async (tab: TabState) => {
     if (tab.runtimeId == null) return;
@@ -299,7 +326,6 @@ export function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand"><span className="brand-mark"><Blocks size={17} /></span><span><strong>PK Session</strong><small>living workspace</small></span></div>
-        <div className="workspace-switch"><span className="live-dot" />{workspace.name}<ChevronDown size={14} /></div>
         <nav aria-label="Vues principales">
           <button className={view === 'workspace' ? 'active' : ''} onClick={() => { setView('workspace'); setSelectedTab(undefined); }}><Box size={15} /> Espace</button>
           <button className={view === 'timeline' ? 'active' : ''} onClick={() => { setView('timeline'); setSelectedTab(undefined); }}><GitBranch size={15} /> Chronologie</button>
@@ -310,7 +336,7 @@ export function App() {
         </div>
       </header>
       <div className="body-grid">
-        <VersionRail versions={versions} selected={version} onCreate={() => void capture()} onSelect={(next) => { setVersion(next); setSelectedTab(undefined); }} />
+        <VersionRail workspaces={workspaces} activeWorkspaceId={activeWorkspaceId} versions={versions} selected={version} onSwitch={(id) => void switchSession(id)} onNew={() => void newSession()} onCreate={() => void capture()} onSelect={(next) => { setVersion(next); setSelectedTab(undefined); }} />
         <main>
           <div className="context-bar">
             <div className="version-nav"><button onClick={() => moveVersion(-1)} disabled={!previous} aria-label="État précédent"><ArrowLeft size={15} /></button><span><b>état {version.number}</b><small>{formatTime(version.createdAt)}</small></span><button onClick={() => moveVersion(1)} disabled={versionIndex === versions.length - 1} aria-label="État suivant"><ArrowRight size={15} /></button></div>

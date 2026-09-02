@@ -1,4 +1,4 @@
-import { captureThumbnail, captureVersion, recordClosed, recordVisit, restoreVersion } from '@/engine';
+import { captureThumbnail, captureVersion, createWorkspace, recordClosed, recordVisit, restoreVersion, switchWorkspace } from '@/engine';
 import { isTrackableUrl, type RuntimeRequest } from '@/model';
 import { defineBackground } from 'wxt/utils/define-background';
 
@@ -48,6 +48,8 @@ export default defineBackground(() => {
       : request.type === 'RESTORE_VERSION' ? restoreVersion(request.versionId)
       : request.type === 'CLOSE_TAB' ? chrome.tabs.remove(request.runtimeId)
       : request.type === 'ACTIVATE_TAB' ? activateTab(request.runtimeId, request.windowId, request.url)
+      : request.type === 'SWITCH_WORKSPACE' ? switchWorkspace(request.workspaceId)
+      : request.type === 'CREATE_WORKSPACE' ? createWorkspace(request.name)
       : dbOpen(request.tabId, request.url);
     void action.then((value) => sendResponse({ ok: true, value })).catch((error: Error) => sendResponse({ ok: false, error: error.message }));
     return true;

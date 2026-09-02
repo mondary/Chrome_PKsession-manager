@@ -15,6 +15,7 @@ class SessionDb extends Dexie {
       tabs: 'id, runtimeId, parentId, createdAt, closedAt',
       visits: 'id, tabId, at, kind, [tabId+at]',
     });
+    this.version(2).stores({ versions: 'id, workspaceId, number, createdAt, stateHash' });
   }
 }
 

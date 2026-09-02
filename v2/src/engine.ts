@@ -1,7 +1,12 @@
 import { db } from './db';
 import { isTrackableUrl, stateSignature, type GroupColor, type LogicalTab, type SessionState, type SessionVersion, type TabState, type TabVisit } from './model';
 
-const WORKSPACE_ID = 'default';
+const DEFAULT_WORKSPACE_ID = 'default';
+const ACTIVE_WORKSPACE_KEY = 'activeWorkspaceId';
+async function activeWorkspaceId() {
+  const stored = await chrome.storage.local.get(ACTIVE_WORKSPACE_KEY);
+  return (stored[ACTIVE_WORKSPACE_KEY] as string | undefined) ?? DEFAULT_WORKSPACE_ID;
+}
 async function runtimeMap() {
   const stored = await chrome.storage.session.get('tabIdentities');
   return (stored.tabIdentities ?? {}) as Record<number, string>;
@@ -14,7 +19,8 @@ async function logicalTab(tab: chrome.tabs.Tab) {
     const existing = await db.tabs.get(mapping[tab.id]);
     if (existing) return existing;
   }
-  const latest = await db.versions.orderBy('number').last();
+  const workspaceId = await activeWorkspaceId();
+  const latest = (await db.versions.toArray()).filter((item) => (item.workspaceId ?? DEFAULT_WORKSPACE_ID) === workspaceId).sort((a, b) => b.number - a.number)[0];
   const reusable = latest?.state.tabs
     .filter((saved) => saved.url === (tab.url ?? tab.pendingUrl) && !Object.values(mapping).includes(saved.id))
     .sort((a, b) => Math.abs(a.index - tab.index) - Math.abs(b.index - tab.index))[0];
@@ -82,14 +88,33 @@ const hashState = async (state: SessionState) => {
 export async function captureVersion(reason: SessionVersion['reason'] = 'change') {
   const state = await buildState();
   const stateHash = await hashState(state);
-  const latest = await db.versions.orderBy('number').last();
+  const workspaceId = await activeWorkspaceId();
+  const latest = (await db.versions.toArray()).filter((item) => (item.workspaceId ?? DEFAULT_WORKSPACE_ID) === workspaceId).sort((a, b) => b.number - a.number)[0];
   if (latest?.stateHash === stateHash && reason !== 'manual') return latest;
-  const version: SessionVersion = { id: crypto.randomUUID(), number: (latest?.number ?? 0) + 1, createdAt: Date.now(), reason, stateHash, state };
+  const version: SessionVersion = { id: crypto.randomUUID(), workspaceId, number: (latest?.number ?? 0) + 1, createdAt: Date.now(), reason, stateHash, state };
   await db.transaction('rw', db.workspaces, db.versions, async () => {
-    await db.workspaces.put({ id: WORKSPACE_ID, name: 'Espace de navigation', createdAt: Date.now() });
+    const existing = await db.workspaces.get(workspaceId);
+    await db.workspaces.put(existing ?? { id: workspaceId, name: workspaceId === DEFAULT_WORKSPACE_ID ? 'Session principale' : 'Session', createdAt: Date.now() });
     await db.versions.add(version);
   });
   return version;
+}
+
+export async function switchWorkspace(workspaceId: string) {
+  await captureVersion('change');
+  const tabs = await chrome.tabs.query({});
+  await chrome.tabs.remove(tabs.filter((tab) => !tab.incognito && isTrackableUrl(tab.url ?? tab.pendingUrl) && tab.id != null).map((tab) => tab.id!));
+  await chrome.storage.local.set({ [ACTIVE_WORKSPACE_KEY]: workspaceId });
+  const latest = (await db.versions.toArray()).filter((item) => (item.workspaceId ?? DEFAULT_WORKSPACE_ID) === workspaceId).sort((a, b) => b.number - a.number)[0];
+  if (latest) await restoreVersion(latest.id);
+  return latest?.id ?? (await captureVersion('change')).id;
+}
+
+export async function createWorkspace(name: string) {
+  const id = crypto.randomUUID();
+  await db.workspaces.add({ id, name, createdAt: Date.now() });
+  await switchWorkspace(id);
+  return id;
 }
 
 export async function restoreVersion(versionId: string) {

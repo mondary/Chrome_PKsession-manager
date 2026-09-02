@@ -6,7 +6,7 @@ Historique des versions de PK Session.
 
 ## TODO — Roadmap
 
-Statut : `2026.09.06` (chronologie vivante)
+Statut : `2026.09.07` (sessions sauvegardées)
 
 ### V2 — Sessions vivantes
 - [x] Séparer les espaces, versions immuables et identités d’onglets.
@@ -17,6 +17,16 @@ Statut : `2026.09.06` (chronologie vivante)
 ---
 
 ## Releases
+
+### [2026.09.07] - 2026-09-02
+#### Added
+- Liste de sessions sauvegardées dans la colonne gauche.
+- Création d’une session personnelle ou professionnelle séparée.
+- Bascule entre sessions avec sauvegarde et fermeture de la session courante.
+
+#### Changed
+- L’historique et les points de restauration sont isolés par session.
+- Le sélecteur `PK Session · V2` inutile a été retiré du header.
 
 ### [2026.09.06] - 2026-09-02
 #### Added
