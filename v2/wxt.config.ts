@@ -7,8 +7,8 @@ export default defineConfig({
   vite: () => ({ plugins: [react()] }),
   manifest: {
     name: 'PK Session',
-    version: '2026.9.3',
-    version_name: '2026.09.03',
+    version: '2026.9.4',
+    version_name: '2026.09.04',
     description: 'Des sessions Chrome vivantes, versionnees et restaurables.',
     minimum_chrome_version: '120',
     permissions: ['tabs', 'tabGroups', 'webNavigation', 'storage', 'alarms', 'unlimitedStorage'],

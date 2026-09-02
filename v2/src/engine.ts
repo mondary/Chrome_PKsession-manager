@@ -96,23 +96,34 @@ export async function restoreVersion(versionId: string) {
   if (!version) throw new Error('Version introuvable.');
   const tabs = [...version.state.tabs].sort((a, b) => a.index - b.index);
   if (!tabs.length) return 0;
-  const createdWindow = await chrome.windows.create({ url: tabs[0].url, focused: true });
-  if (!createdWindow || createdWindow.id == null || createdWindow.tabs?.[0]?.id == null) return 0;
-  const windowId = createdWindow.id;
-  const firstTabId = createdWindow.tabs[0].id;
-  const ids = new Map<string, number>([[tabs[0].id, firstTabId]]);
-  await chrome.tabs.update(firstTabId, { pinned: tabs[0].pinned });
-  for (const tab of tabs.slice(1)) {
-    const created = await chrome.tabs.create({ windowId, url: tab.url, active: false, pinned: tab.pinned });
-    if (created.id != null) ids.set(tab.id, created.id);
+  const windows = new Map<number, TabState[]>();
+  for (const tab of tabs) {
+    const windowId = tab.windowId ?? 0;
+    const windowTabs = windows.get(windowId);
+    if (windowTabs) windowTabs.push(tab);
+    else windows.set(windowId, [tab]);
   }
-  for (const group of version.state.groups) {
-    const tabIds = tabs.filter((tab) => tab.groupId === group.id).map((tab) => ids.get(tab.id)).filter((id): id is number => id != null);
-    if (!tabIds.length) continue;
-    const groupId = await new Promise<number>((resolve, reject) => chrome.tabs.group({ tabIds: tabIds as [number, ...number[]], createProperties: { windowId } }, (id) => chrome.runtime.lastError ? reject(new Error(chrome.runtime.lastError.message)) : resolve(id)));
-    await chrome.tabGroups.update(groupId, { title: group.title, color: group.color, collapsed: group.collapsed });
+  let restored = 0;
+  for (const windowTabs of windows.values()) {
+    const createdWindow = await chrome.windows.create({ url: windowTabs[0].url, focused: restored === 0 });
+    if (!createdWindow || createdWindow.id == null || createdWindow.tabs?.[0]?.id == null) continue;
+    const windowId = createdWindow.id;
+    const firstTabId = createdWindow.tabs[0].id;
+    const ids = new Map<string, number>([[windowTabs[0].id, firstTabId]]);
+    await chrome.tabs.update(firstTabId, { pinned: windowTabs[0].pinned });
+    for (const tab of windowTabs.slice(1)) {
+      const created = await chrome.tabs.create({ windowId, url: tab.url, active: false, pinned: tab.pinned });
+      if (created.id != null) ids.set(tab.id, created.id);
+    }
+    for (const group of version.state.groups) {
+      const tabIds = windowTabs.filter((tab) => tab.groupId === group.id).map((tab) => ids.get(tab.id)).filter((id): id is number => id != null);
+      if (!tabIds.length) continue;
+      const groupId = await new Promise<number>((resolve, reject) => chrome.tabs.group({ tabIds: tabIds as [number, ...number[]], createProperties: { windowId } }, (id) => chrome.runtime.lastError ? reject(new Error(chrome.runtime.lastError.message)) : resolve(id)));
+      await chrome.tabGroups.update(groupId, { title: group.title, color: group.color, collapsed: group.collapsed });
+    }
+    const active = windowTabs.find((tab) => tab.active);
+    if (active && ids.get(active.id) != null) await chrome.tabs.update(ids.get(active.id)!, { active: true });
+    restored += windowTabs.length;
   }
-  const active = tabs.find((tab) => tab.active);
-  if (active && ids.get(active.id) != null) await chrome.tabs.update(ids.get(active.id)!, { active: true });
-  return tabs.length;
+  return restored;
 }

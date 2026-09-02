@@ -8,7 +8,7 @@ PK Session preserves your Chrome workspaces as living sessions that are automati
 
 - Immutable versions created after navigation and structural changes.
 - Preserved composition, order, groups, pinned tabs, active tab, and sleeping state.
-- Non-destructive restoration into a new Chrome window.
+- Non-destructive restoration of every Chrome window in the session.
 - Durable identity for every tab and a complete navigation history.
 - Parent/child relationships between tabs opened from another page.
 - Three complementary views: Workspace, Journey, and Origins.
@@ -23,6 +23,8 @@ PK Session preserves your Chrome workspaces as living sessions that are automati
 - **Origins** maps relationships between parent and child tabs.
 - The Versions rail lets you inspect and restore an earlier state.
 - Clicking a row activates the matching Chrome tab; the details panel remains limited to the Journey and Origins views.
+- Windows appear as separate packs containing their own groups and tabs.
+- `Cmd/Ctrl+K` focuses search, and the Settings button opens a dedicated drawer.
 
 ## Build
 

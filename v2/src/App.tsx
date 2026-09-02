@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useState } from 'react';
+import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft, ArrowRight, Blocks, Box, Check, ChevronDown,
   Command, ExternalLink, GitBranch, History, Layers3, Monitor, Network,
@@ -29,10 +29,11 @@ function VersionRail({ versions, selected, onSelect, onCreate }: { versions: Ses
         {[...versions].reverse().map((version, index) => {
           const previous = versions[versions.indexOf(version) - 1];
           const diff = diffVersions(previous, version);
+          const windowCount = new Set(version.state.tabs.map((tab) => tab.windowId ?? 0)).size;
           return (
             <button className={`version-card ${version.id === selected.id ? 'selected' : ''}`} key={version.id} onClick={() => onSelect(version)}>
               <span className="version-line"><i /><b>état {version.number}</b><time>{formatTime(version.createdAt)}</time></span>
-              <strong>{version.state.tabs.length} onglets</strong>
+              <strong>{windowCount} fenêtre{windowCount > 1 ? 's' : ''} · {version.state.tabs.length} onglets</strong>
               <small>{index === 0 ? 'État actuel' : `${diff.added.length} ajoutés · ${diff.removed.length} fermés`}</small>
             </button>
           );
@@ -82,14 +83,17 @@ function WorkspaceView({ version, previous, query, isCurrent, onActivateTab, onC
   const preview = tabs.find((tab) => tab.id === hoveredId) ?? tabs[0];
   const diff = diffVersions(previous, version);
   const changedIds = new Set([...diff.added, ...diff.changed].map((tab) => tab.id));
-  const sections = [
-    ...version.state.groups.map((group) => ({ id: group.id, title: group.title, color: group.color, tabs: tabs.filter((tab) => tab.groupId === group.id) })),
-    { id: 'loose', title: 'Sans groupe', color: 'grey', tabs: tabs.filter((tab) => !tab.groupId) },
-  ].filter((section) => section.tabs.length);
+  const windows = [...new Set(tabs.map((tab) => tab.windowId ?? 0))].map((windowId, index) => {
+    const windowTabs = tabs.filter((tab) => (tab.windowId ?? 0) === windowId);
+    return { id: windowId, number: index + 1, tabs: windowTabs, sections: [
+      ...version.state.groups.map((group) => ({ id: group.id, title: group.title, color: group.color, tabs: windowTabs.filter((tab) => tab.groupId === group.id) })),
+      { id: 'loose', title: 'Sans groupe', color: 'grey', tabs: windowTabs.filter((tab) => !tab.groupId) },
+    ].filter((section) => section.tabs.length) };
+  });
   return (
     <div className="workspace-view">
       <div className="version-summary">
-        <div><span>État {version.number}</span><h1>{version.state.tabs.length} onglets, exactement à {formatTime(version.createdAt)}</h1><p>{relativeDate(version.createdAt)} · composition, ordre et groupes conservés</p></div>
+        <div><span>État {version.number}</span><h1>{windows.length} fenêtre{windows.length > 1 ? 's' : ''}, {version.state.tabs.length} onglets à {formatTime(version.createdAt)}</h1><p>{relativeDate(version.createdAt)} · fenêtres, ordre et groupes conservés</p></div>
         <div className="delta-strip">
           <span className="delta added">+{diff.added.length}<small>ouverts</small></span>
           <span className="delta changed">~{diff.changed.length}<small>modifiés</small></span>
@@ -104,22 +108,27 @@ function WorkspaceView({ version, previous, query, isCurrent, onActivateTab, onC
           {preview && <div className="preview-copy"><Favicon tab={preview} /><span><strong>{preview.title}</strong><small>{preview.url}</small></span></div>}
         </aside>
         <div className="session-list">
-          {sections.map((section) => (
-            <section className="tab-group" key={section.id}>
-              <header><span className={`group-dot ${section.color}`} /><strong>{section.title}</strong><b>{section.tabs.length}</b><ChevronDown size={14} /></header>
-              <div>
-                {section.tabs.map((tab) => (
-                  <article className="tab-row" key={tab.id} onMouseEnter={() => setHoveredId(tab.id)} onFocus={() => setHoveredId(tab.id)}>
-                    <button className="tab-open" onClick={() => onActivateTab(tab)}>
-                      <Favicon tab={tab} />
-                      <span className="tab-copy"><strong>{tab.title}</strong><small>{tab.url}</small></span>
-                    </button>
-                    <span className="tab-domain">{domainOf(tab.url)}</span>
-                    <span className="tab-status">{changedIds.has(tab.id) && <i title="Modifié depuis la version précédente" />}{tab.pinned && <Pin size={12} />}{tab.sleeping && <span className="sleep">veille</span>}</span>
-                    {isCurrent && tab.runtimeId != null && <button className="tab-close" aria-label={`Fermer ${tab.title}`} onClick={() => onCloseTab(tab)}><X size={14} /></button>}
-                  </article>
-                ))}
-              </div>
+          {windows.map((window) => (
+            <section className="window-section" key={window.id}>
+              <header className="window-title"><Monitor size={14} /><strong>Fenêtre {window.number}</strong><span>{window.tabs.length} onglets</span></header>
+              {window.sections.map((section) => (
+                <section className={`tab-group ${section.id === 'loose' ? 'loose' : ''}`} key={`${window.id}-${section.id}`}>
+                  <header><span className={`group-dot ${section.color}`} /><strong>{section.title}</strong><b>{section.tabs.length}</b><ChevronDown size={14} /></header>
+                  <div>
+                    {section.tabs.map((tab) => (
+                      <article className="tab-row" key={tab.id} onMouseEnter={() => setHoveredId(tab.id)} onFocus={() => setHoveredId(tab.id)}>
+                        <button className="tab-open" onClick={() => onActivateTab(tab)}>
+                          <Favicon tab={tab} />
+                          <span className="tab-copy"><strong>{tab.title}</strong><small>{tab.url}</small></span>
+                        </button>
+                        <span className="tab-domain">{domainOf(tab.url)}</span>
+                        <span className="tab-status">{changedIds.has(tab.id) && <i title="Modifié depuis la version précédente" />}{tab.pinned && <Pin size={12} />}{tab.sleeping && <span className="sleep">veille</span>}</span>
+                        {isCurrent && tab.runtimeId != null && <button className="tab-close" aria-label={`Fermer ${tab.title}`} onClick={() => onCloseTab(tab)}><X size={14} /></button>}
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ))}
             </section>
           ))}
         </div>
@@ -184,6 +193,10 @@ export function App() {
   const [selectedTab, setSelectedTab] = useState<TabState>();
   const [query, setQuery] = useState('');
   const [notice, setNotice] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const settingsRef = useRef<HTMLDialogElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const deferredQuery = useDeferredValue(query);
   const versionIndex = versions.findIndex((item) => item.id === version.id);
   const previous = versions[versionIndex - 1];
@@ -210,6 +223,21 @@ export function App() {
     document.addEventListener('visibilitychange', reload);
     return () => { window.removeEventListener('focus', reload); document.removeEventListener('visibilitychange', reload); };
   }, []);
+  useEffect(() => {
+    const focusSearch = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k') return;
+      event.preventDefault();
+      if (settingsRef.current?.open) settingsRef.current.close();
+      requestAnimationFrame(() => { searchRef.current?.focus(); searchRef.current?.select(); });
+    };
+    window.addEventListener('keydown', focusSearch);
+    return () => window.removeEventListener('keydown', focusSearch);
+  }, []);
+  useEffect(() => {
+    const dialog = settingsRef.current;
+    if (settingsOpen && !dialog?.open) dialog?.showModal();
+    if (!settingsOpen && dialog?.open) dialog.close();
+  }, [settingsOpen]);
   const moveVersion = (direction: number) => {
     const next = versions[Math.max(0, Math.min(versions.length - 1, versionIndex + direction))];
     setVersion(next);
@@ -239,8 +267,8 @@ export function App() {
           <button className={view === 'map' ? 'active' : ''} onClick={() => { setView('map'); setSelectedTab(undefined); }}><Network size={15} /> Origines</button>
         </nav>
         <div className="top-actions">
-          <label className="search"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Onglet, domaine…" /><kbd>⌘ K</kbd></label>
-          <button className="icon-button" aria-label="Réglages"><Settings2 size={16} /></button>
+          <label className="search"><Search size={14} /><input ref={searchRef} aria-label="Rechercher un onglet ou un domaine" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Onglet, domaine…" /><kbd>⌘ K</kbd></label>
+          <button ref={settingsButtonRef} className="icon-button" aria-label="Ouvrir les réglages" aria-haspopup="dialog" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(true)}><Settings2 size={16} /></button>
         </div>
       </header>
       <div className="body-grid">
@@ -263,6 +291,11 @@ export function App() {
       </div>
       {notice && <div className="notice"><Sparkles size={15} />{notice}</div>}
       <button className="command-button" aria-label="Ouvrir la palette de commandes"><Command size={15} /></button>
+      <dialog ref={settingsRef} className="settings-drawer" aria-labelledby="settings-title" onClose={() => { setSettingsOpen(false); settingsButtonRef.current?.focus(); }} onClick={(event) => { if (event.clientX < event.currentTarget.getBoundingClientRect().left) event.currentTarget.close(); }}>
+        <header><div><span>Préférences</span><h2 id="settings-title">Réglages</h2></div><form method="dialog"><button aria-label="Fermer les réglages"><X size={18} /></button></form></header>
+        <section><History size={18} /><div><h3>Historique des états</h3><p>Une capture est enregistrée après un changement de la session et toutes les 15 minutes uniquement si son contenu a changé.</p></div></section>
+        <section><Monitor size={18} /><div><h3>Données locales</h3><p>L’historique et les miniatures restent stockés dans ce navigateur. Aucun compte ni serveur externe.</p></div></section>
+      </dialog>
     </div>
   );
 }

@@ -6,7 +6,7 @@ Historique des versions de PK Session.
 
 ## TODO — Roadmap
 
-Statut : `2026.09.03` (versions fiables et navigation directe)
+Statut : `2026.09.04` (sessions multi-fenêtres et réglages)
 
 ### V2 — Sessions vivantes
 - [x] Séparer les espaces, versions immuables et identités d’onglets.
@@ -17,6 +17,15 @@ Statut : `2026.09.03` (versions fiables et navigation directe)
 ---
 
 ## Releases
+
+### [2026.09.04] - 2026-09-02
+#### Added
+- Drawer de réglages accessible depuis la barre supérieure.
+- Raccourci `Cmd/Ctrl+K` pour cibler directement la recherche.
+
+#### Changed
+- Chaque fenêtre est présentée comme un pack distinct contenant ses groupes et ses onglets.
+- La restauration recrée toutes les fenêtres et tous les groupes de la session.
 
 ### [2026.09.03] - 2026-09-02
 #### Changed

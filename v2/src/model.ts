@@ -24,16 +24,18 @@ export function diffVersions(previous: SessionVersion | undefined, current: Sess
     const old = before.find((item) => item.id === tab.id) ?? before.find((item) => item.url === tab.url && !matched.has(item.id));
     if (!old) { added.push(tab); continue; }
     matched.add(old.id);
-    if (old.url !== tab.url || old.groupId !== tab.groupId || old.index !== tab.index || old.sleeping !== tab.sleeping || old.pinned !== tab.pinned) changed.push(tab);
+    if (old.url !== tab.url || old.groupId !== tab.groupId || old.index !== tab.index || old.sleeping !== tab.sleeping || old.pinned !== tab.pinned || windowSignature(previous!.state, old) !== windowSignature(current.state, tab)) changed.push(tab);
   }
   return { added, removed: before.filter((tab) => !matched.has(tab.id)), changed };
 }
 
 export function stateSignature(state: SessionState) {
   const groups = new Map(state.groups.map((group) => [group.id, `${group.title}|${group.color}|${group.collapsed}`]));
-  const tabs = state.tabs.map((tab) => ({ url: tab.url, index: tab.index, group: tab.groupId ? groups.get(tab.groupId) : '', pinned: tab.pinned, sleeping: tab.sleeping })).sort((a, b) => a.index - b.index || a.url.localeCompare(b.url));
+  const tabs = state.tabs.map((tab) => ({ window: windowSignature(state, tab), url: tab.url, index: tab.index, group: tab.groupId ? groups.get(tab.groupId) : '', pinned: tab.pinned, sleeping: tab.sleeping })).sort((a, b) => a.window.localeCompare(b.window) || a.index - b.index || a.url.localeCompare(b.url));
   return JSON.stringify(tabs);
 }
+
+const windowSignature = (state: SessionState, tab: TabState) => JSON.stringify(state.tabs.filter((item) => item.windowId === tab.windowId).sort((a, b) => a.index - b.index).map((item) => item.url));
 
 export function compactVersions(versions: SessionVersion[]) {
   return versions.filter((version, index) => index === versions.length - 1 || stateSignature(version.state) !== stateSignature(versions[index + 1].state));

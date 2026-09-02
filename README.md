@@ -8,7 +8,7 @@ PK Session conserve vos espaces Chrome comme des sessions vivantes, versionnées
 
 - Versions immuables créées après les changements de navigation et de structure.
 - Composition, ordre, groupes, épingles, onglet actif et état de veille conservés.
-- Restauration non destructive dans une nouvelle fenêtre Chrome.
+- Restauration non destructive de toutes les fenêtres Chrome de la session.
 - Identité durable de chaque onglet et historique complet de ses navigations.
 - Relations parent/enfant entre les onglets ouverts depuis une page.
 - Trois vues complémentaires : Espace, Parcours et Origines.
@@ -23,6 +23,8 @@ PK Session conserve vos espaces Chrome comme des sessions vivantes, versionnées
 - **Origines** représente les relations entre les onglets parents et enfants.
 - La colonne Versions permet de consulter puis restaurer un état antérieur.
 - Un clic sur une ligne active l’onglet Chrome correspondant ; le panneau de détails reste réservé aux vues Parcours et Origines.
+- Les fenêtres apparaissent comme des packs distincts contenant leurs groupes et leurs onglets.
+- `Cmd/Ctrl+K` cible la recherche et le bouton Réglages ouvre un drawer dédié.
 
 ## Build
 

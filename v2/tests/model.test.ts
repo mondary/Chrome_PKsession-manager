@@ -23,4 +23,12 @@ describe('session versions', () => {
     expect(diffVersions(first, second)).toEqual({ added: [], removed: [], changed: [] });
     expect(compactVersions([first, second])).toEqual([second]);
   });
+
+  it('preserves window boundaries without depending on Chrome window ids', () => {
+    const first = version(1, [{ ...tab('a'), windowId: 10 }, { ...tab('b'), windowId: 20 }]);
+    const sameWindows = version(2, [{ ...tab('a'), windowId: 30 }, { ...tab('b'), windowId: 40 }]);
+    const mergedWindow = version(3, [{ ...tab('a'), windowId: 50 }, { ...tab('b'), windowId: 50 }]);
+    expect(stateSignature(first.state)).toBe(stateSignature(sameWindows.state));
+    expect(stateSignature(first.state)).not.toBe(stateSignature(mergedWindow.state));
+  });
 });
