@@ -1,5 +1,38 @@
 # Changelog
 
+Historique des versions de PK Session.
+
+---
+
+## TODO — Roadmap
+
+Statut : `2026.09.01` (nouvelle architecture V2)
+
+### V2 — Sessions vivantes
+- [x] Séparer les espaces, versions immuables et identités d’onglets.
+- [x] Restaurer la composition, l’ordre et les groupes d’une version.
+- [x] Visualiser les lignes de vie et les relations parent/enfant.
+- [ ] Valider la migration des données V1.
+
+---
+
+## Releases
+
+### [2026.09.01] - 2026-09-02
+#### Added
+- Nouvelle V2 autonome dans `v2/` avec capture automatique et restauration des sessions Chrome.
+- Vues Espace, Parcours et Origines alimentées par les mêmes versions locales.
+- Identité durable des onglets, historique des navigations et relations parent/enfant.
+
+#### Changed
+- Nouvelle interface construite à partir des trois concepts du dossier `templates/`.
+- Adoption du versionnement calendaire PK.
+
+#### Fixed
+- Capture fraîche des onglets avant chaque ouverture de l’application.
+- Badge de l’icône synchronisé avec le nombre d’onglets web ouverts.
+- Icônes de l’extension générées depuis `icon.png`.
+
 ## [0.12.1] - 2026-06-30
 ### Fixed
 - Fonds opaques et contraste renforcé pour toutes les fenêtres modales.

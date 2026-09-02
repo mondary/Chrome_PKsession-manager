@@ -1,0 +1,28 @@
+{
+  "name": "pk-session-v2",
+  "version": "2026.09.01",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.2.17",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "compile": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "dexie": "latest",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@types/chrome": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "typescript": "latest",
+    "vitest": "latest",
+    "wxt": "0.20.27"
+  }
+}
