@@ -6,7 +6,7 @@ Historique des versions de PK Session.
 
 ## TODO — Roadmap
 
-Statut : `2026.09.02` (interface dense et aperçus)
+Statut : `2026.09.03` (versions fiables et navigation directe)
 
 ### V2 — Sessions vivantes
 - [x] Séparer les espaces, versions immuables et identités d’onglets.
@@ -17,6 +17,18 @@ Statut : `2026.09.02` (interface dense et aperçus)
 ---
 
 ## Releases
+
+### [2026.09.03] - 2026-09-02
+#### Changed
+- Clic sur une ligne pour activer directement le bon onglet Chrome.
+- Typographie agrandie dans les vues, listes et panneaux de détails.
+- Placeholder d’aperçu propre à chaque onglet tant que sa miniature n’existe pas.
+
+#### Fixed
+- Versions automatiques limitées aux changements visibles de composition, URL, ordre, groupe, épingle ou veille.
+- Identité des onglets conservée après rechargement même lorsque leur index a changé.
+- Anciens états consécutifs identiques masqués dans la timeline.
+- Capture de miniature relancée après le chargement complet d’un onglet actif.
 
 ### [2026.09.02] - 2026-09-02
 #### Added

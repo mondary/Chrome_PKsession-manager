@@ -22,6 +22,7 @@ PK Session preserves your Chrome workspaces as living sessions that are automati
 - **Journey** shows each tab’s lifeline and URL changes.
 - **Origins** maps relationships between parent and child tabs.
 - The Versions rail lets you inspect and restore an earlier state.
+- Clicking a row activates the matching Chrome tab; the details panel remains limited to the Journey and Origins views.
 
 ## Build
 

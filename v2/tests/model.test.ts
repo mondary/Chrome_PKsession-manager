@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diffVersions, isTrackableUrl, type SessionVersion, type TabState } from '../src/model';
+import { compactVersions, diffVersions, isTrackableUrl, stateSignature, type SessionVersion, type TabState } from '../src/model';
 
 const tab = (id: string, url = `https://${id}.test`): TabState => ({ id, title: id, url, index: 0, pinned: false, sleeping: false, active: false });
 const version = (number: number, tabs: TabState[]): SessionVersion => ({ id: String(number), number, createdAt: number, reason: 'change', stateHash: String(number), state: { groups: [], tabs } });
@@ -14,5 +14,13 @@ describe('session versions', () => {
 
   it('counts only tabs that belong to a restorable web session', () => {
     expect(['https://example.com', 'chrome://extensions', ''].filter(isTrackableUrl)).toEqual(['https://example.com']);
+  });
+
+  it('ignores presentation changes when deciding whether a session changed', () => {
+    const first = version(1, [tab('old-id', 'https://same.test')]);
+    const second = version(2, [{ ...tab('new-id', 'https://same.test'), title: 'Nouveau titre', active: true, thumbnail: 'data:image/jpeg;base64,x' }]);
+    expect(stateSignature(first.state)).toBe(stateSignature(second.state));
+    expect(diffVersions(first, second)).toEqual({ added: [], removed: [], changed: [] });
+    expect(compactVersions([first, second])).toEqual([second]);
   });
 });

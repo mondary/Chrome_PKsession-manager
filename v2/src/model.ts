@@ -12,19 +12,31 @@ export type RuntimeRequest =
   | { type: 'CAPTURE_VERSION'; reason?: SessionVersion['reason'] }
   | { type: 'RESTORE_VERSION'; versionId: string }
   | { type: 'OPEN_TAB'; tabId: string; url: string }
+  | { type: 'ACTIVATE_TAB'; runtimeId?: number; windowId?: number; url: string }
   | { type: 'CLOSE_TAB'; runtimeId: number };
 
 export function diffVersions(previous: SessionVersion | undefined, current: SessionVersion) {
-  const before = new Map(previous?.state.tabs.map((tab) => [tab.id, tab]) ?? []);
-  const after = new Map(current.state.tabs.map((tab) => [tab.id, tab]));
-  return {
-    added: current.state.tabs.filter((tab) => !before.has(tab.id)),
-    removed: previous?.state.tabs.filter((tab) => !after.has(tab.id)) ?? [],
-    changed: current.state.tabs.filter((tab) => {
-      const old = before.get(tab.id);
-      return old && (old.url !== tab.url || old.groupId !== tab.groupId || old.index !== tab.index || old.sleeping !== tab.sleeping);
-    }),
-  };
+  const before = previous?.state.tabs ?? [];
+  const matched = new Set<string>();
+  const added: TabState[] = [];
+  const changed: TabState[] = [];
+  for (const tab of current.state.tabs) {
+    const old = before.find((item) => item.id === tab.id) ?? before.find((item) => item.url === tab.url && !matched.has(item.id));
+    if (!old) { added.push(tab); continue; }
+    matched.add(old.id);
+    if (old.url !== tab.url || old.groupId !== tab.groupId || old.index !== tab.index || old.sleeping !== tab.sleeping || old.pinned !== tab.pinned) changed.push(tab);
+  }
+  return { added, removed: before.filter((tab) => !matched.has(tab.id)), changed };
+}
+
+export function stateSignature(state: SessionState) {
+  const groups = new Map(state.groups.map((group) => [group.id, `${group.title}|${group.color}|${group.collapsed}`]));
+  const tabs = state.tabs.map((tab) => ({ url: tab.url, index: tab.index, group: tab.groupId ? groups.get(tab.groupId) : '', pinned: tab.pinned, sleeping: tab.sleeping })).sort((a, b) => a.index - b.index || a.url.localeCompare(b.url));
+  return JSON.stringify(tabs);
+}
+
+export function compactVersions(versions: SessionVersion[]) {
+  return versions.filter((version, index) => index === versions.length - 1 || stateSignature(version.state) !== stateSignature(versions[index + 1].state));
 }
 
 export const domainOf = (url: string) => {

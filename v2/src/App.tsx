@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { versions as demoVersions, visits as demoVisits, workspace } from './demo';
 import { db } from './db';
-import { diffVersions, domainOf, type RuntimeRequest, type SessionVersion, type TabState, type TabVisit } from './model';
+import { compactVersions, diffVersions, domainOf, type RuntimeRequest, type SessionVersion, type TabState, type TabVisit } from './model';
 
 type View = 'workspace' | 'lifelines' | 'map';
 
@@ -31,7 +31,7 @@ function VersionRail({ versions, selected, onSelect, onCreate }: { versions: Ses
           const diff = diffVersions(previous, version);
           return (
             <button className={`version-card ${version.id === selected.id ? 'selected' : ''}`} key={version.id} onClick={() => onSelect(version)}>
-              <span className="version-line"><i /><b>v{version.number}</b><time>{formatTime(version.createdAt)}</time></span>
+              <span className="version-line"><i /><b>état {version.number}</b><time>{formatTime(version.createdAt)}</time></span>
               <strong>{version.state.tabs.length} onglets</strong>
               <small>{index === 0 ? 'État actuel' : `${diff.added.length} ajoutés · ${diff.removed.length} fermés`}</small>
             </button>
@@ -75,7 +75,7 @@ function Inspector({ tab, visits, onClose, onOpen }: { tab: TabState; visits: Ta
   );
 }
 
-function WorkspaceView({ version, previous, query, selectedTab, isCurrent, onSelectTab, onCloseTab }: { version: SessionVersion; previous?: SessionVersion; query: string; selectedTab?: TabState; isCurrent: boolean; onSelectTab: (tab: TabState) => void; onCloseTab: (tab: TabState) => void }) {
+function WorkspaceView({ version, previous, query, isCurrent, onActivateTab, onCloseTab }: { version: SessionVersion; previous?: SessionVersion; query: string; isCurrent: boolean; onActivateTab: (tab: TabState) => void; onCloseTab: (tab: TabState) => void }) {
   const [hoveredId, setHoveredId] = useState<string>();
   const normalized = query.toLowerCase();
   const tabs = version.state.tabs.filter((tab) => `${tab.title} ${tab.url}`.toLowerCase().includes(normalized));
@@ -89,7 +89,7 @@ function WorkspaceView({ version, previous, query, selectedTab, isCurrent, onSel
   return (
     <div className="workspace-view">
       <div className="version-summary">
-        <div><span>Version v{version.number}</span><h1>{version.state.tabs.length} onglets, exactement à {formatTime(version.createdAt)}</h1><p>{relativeDate(version.createdAt)} · composition, ordre et groupes conservés</p></div>
+        <div><span>État {version.number}</span><h1>{version.state.tabs.length} onglets, exactement à {formatTime(version.createdAt)}</h1><p>{relativeDate(version.createdAt)} · composition, ordre et groupes conservés</p></div>
         <div className="delta-strip">
           <span className="delta added">+{diff.added.length}<small>ouverts</small></span>
           <span className="delta changed">~{diff.changed.length}<small>modifiés</small></span>
@@ -99,7 +99,7 @@ function WorkspaceView({ version, previous, query, selectedTab, isCurrent, onSel
       <div className="session-stage">
         <aside className="tab-preview" aria-live="polite">
           <div className="thumbnail">
-            {preview?.thumbnail ? <img src={preview.thumbnail} alt={`Aperçu de ${preview.title}`} /> : <span><Monitor size={24} /><small>Visitez l’onglet pour générer son aperçu</small></span>}
+            {preview?.thumbnail ? <img src={preview.thumbnail} alt={`Aperçu de ${preview.title}`} /> : preview ? <span className="thumbnail-fallback"><Favicon tab={preview} /><strong>{domainOf(preview.url)}</strong><small>{preview.title}</small><em>Visitez l’onglet pour générer son aperçu</em></span> : <span><Monitor size={24} /><small>Aucun onglet dans cet état</small></span>}
           </div>
           {preview && <div className="preview-copy"><Favicon tab={preview} /><span><strong>{preview.title}</strong><small>{preview.url}</small></span></div>}
         </aside>
@@ -109,8 +109,8 @@ function WorkspaceView({ version, previous, query, selectedTab, isCurrent, onSel
               <header><span className={`group-dot ${section.color}`} /><strong>{section.title}</strong><b>{section.tabs.length}</b><ChevronDown size={14} /></header>
               <div>
                 {section.tabs.map((tab) => (
-                  <article className={`tab-row ${selectedTab?.id === tab.id ? 'selected' : ''}`} key={tab.id} onMouseEnter={() => setHoveredId(tab.id)} onFocus={() => setHoveredId(tab.id)}>
-                    <button className="tab-open" onClick={() => onSelectTab(tab)}>
+                  <article className="tab-row" key={tab.id} onMouseEnter={() => setHoveredId(tab.id)} onFocus={() => setHoveredId(tab.id)}>
+                    <button className="tab-open" onClick={() => onActivateTab(tab)}>
                       <Favicon tab={tab} />
                       <span className="tab-copy"><strong>{tab.title}</strong><small>{tab.url}</small></span>
                     </button>
@@ -198,7 +198,7 @@ export function App() {
     const [storedVersions, storedVisits, storedTabs] = await Promise.all([db.versions.orderBy('number').toArray(), db.visits.orderBy('at').toArray(), db.tabs.toArray()]);
     if (!storedVersions.length) return;
     const tabMetadata = new Map(storedTabs.map((tab) => [tab.id, tab]));
-    const hydratedVersions = storedVersions.map((item) => ({ ...item, state: { ...item.state, tabs: item.state.tabs.map((tab) => ({ ...tab, thumbnail: tabMetadata.get(tab.id)?.thumbnail })) } }));
+    const hydratedVersions = compactVersions(storedVersions).map((item) => ({ ...item, state: { ...item.state, tabs: item.state.tabs.map((tab) => ({ ...tab, thumbnail: tabMetadata.get(tab.id)?.thumbnail })) } }));
     setVersions(hydratedVersions);
     setVisitData(storedVisits);
     setVersion((current) => hydratedVersions.find((item) => item.id === current.id) ?? hydratedVersions.at(-1)!);
@@ -217,11 +217,11 @@ export function App() {
   };
   const restore = async () => {
     const restored = await send<number>({ type: 'RESTORE_VERSION', versionId: version.id });
-    setNotice(restored == null ? `Version v${version.number} prête à restaurer dans une nouvelle fenêtre.` : `${restored} onglets restaurés depuis v${version.number}.`);
+    setNotice(restored == null ? `État ${version.number} prêt à restaurer dans une nouvelle fenêtre.` : `${restored} onglets restaurés depuis l’état ${version.number}.`);
     window.setTimeout(() => setNotice(''), 3200);
   };
   const capture = async () => { await send({ type: 'CAPTURE_VERSION', reason: 'manual' }); await reloadData(); };
-  const openTab = async (tab: TabState) => { await send({ type: 'OPEN_TAB', tabId: tab.id, url: tab.url }); };
+  const openTab = async (tab: TabState) => { await send({ type: 'ACTIVATE_TAB', runtimeId: tab.runtimeId, windowId: tab.windowId, url: tab.url }); };
   const closeTab = async (tab: TabState) => {
     if (tab.runtimeId == null) return;
     await send({ type: 'CLOSE_TAB', runtimeId: tab.runtimeId });
@@ -247,13 +247,13 @@ export function App() {
         <VersionRail versions={versions} selected={version} onCreate={() => void capture()} onSelect={(next) => { setVersion(next); setSelectedTab(undefined); }} />
         <main>
           <div className="context-bar">
-            <div className="version-nav"><button onClick={() => moveVersion(-1)} disabled={!previous} aria-label="Version précédente"><ArrowLeft size={15} /></button><span><b>v{version.number}</b><small>{formatTime(version.createdAt)}</small></span><button onClick={() => moveVersion(1)} disabled={versionIndex === versions.length - 1} aria-label="Version suivante"><ArrowRight size={15} /></button></div>
+            <div className="version-nav"><button onClick={() => moveVersion(-1)} disabled={!previous} aria-label="État précédent"><ArrowLeft size={15} /></button><span><b>état {version.number}</b><small>{formatTime(version.createdAt)}</small></span><button onClick={() => moveVersion(1)} disabled={versionIndex === versions.length - 1} aria-label="État suivant"><ArrowRight size={15} /></button></div>
             <span className="saved"><Check size={13} /> Version immuable · enregistrée localement</span>
             <button className="restore" onClick={() => void restore()}><RotateCcw size={14} /> Restaurer cette version</button>
           </div>
           <div className={`content-grid ${selectedTab ? 'with-inspector' : ''}`}>
             <div className="content-canvas">
-              {view === 'workspace' && <WorkspaceView version={version} previous={previous} query={deferredQuery} selectedTab={selectedTab} isCurrent={versionIndex === versions.length - 1} onSelectTab={setSelectedTab} onCloseTab={(tab) => void closeTab(tab)} />}
+              {view === 'workspace' && <WorkspaceView version={version} previous={previous} query={deferredQuery} isCurrent={versionIndex === versions.length - 1} onActivateTab={(tab) => void openTab(tab)} onCloseTab={(tab) => void closeTab(tab)} />}
               {view === 'lifelines' && <LifelinesView version={version} visits={visitData} onSelectTab={setSelectedTab} />}
               {view === 'map' && <MapView version={version} onSelectTab={setSelectedTab} />}
             </div>

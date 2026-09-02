@@ -28,7 +28,10 @@ export default defineBackground(() => {
   chrome.tabs.onActivated.addListener(({ tabId }) => { void captureThumbnail(tabId).catch(() => undefined); });
   chrome.tabs.onRemoved.addListener((tabId) => { void recordClosed(tabId); void updateBadge(); scheduleCapture(); });
   chrome.tabs.onMoved.addListener(scheduleCapture);
-  chrome.tabs.onUpdated.addListener((_id, change, tab) => { if (change.pinned != null || change.discarded != null || change.groupId != null) scheduleCapture(); });
+  chrome.tabs.onUpdated.addListener((_id, change, tab) => {
+    if (change.status === 'complete' && tab.active && tab.id != null) void captureThumbnail(tab.id).catch(() => undefined);
+    if (change.pinned != null || change.discarded != null || change.groupId != null) scheduleCapture();
+  });
   chrome.tabGroups.onCreated.addListener(scheduleCapture);
   chrome.tabGroups.onUpdated.addListener(scheduleCapture);
   chrome.tabGroups.onRemoved.addListener(scheduleCapture);
@@ -41,6 +44,7 @@ export default defineBackground(() => {
     const action = request.type === 'CAPTURE_VERSION' ? captureVersion(request.reason ?? 'manual')
       : request.type === 'RESTORE_VERSION' ? restoreVersion(request.versionId)
       : request.type === 'CLOSE_TAB' ? chrome.tabs.remove(request.runtimeId)
+      : request.type === 'ACTIVATE_TAB' ? activateTab(request.runtimeId, request.windowId, request.url)
       : dbOpen(request.tabId, request.url);
     void action.then((value) => sendResponse({ ok: true, value })).catch((error: Error) => sendResponse({ ok: false, error: error.message }));
     return true;
@@ -52,4 +56,17 @@ export default defineBackground(() => {
 async function dbOpen(tabId: string, url: string) {
   await chrome.tabs.create({ url });
   return tabId;
+}
+
+async function activateTab(runtimeId: number | undefined, windowId: number | undefined, url: string) {
+  if (runtimeId != null) {
+    try {
+      const tab = await chrome.tabs.get(runtimeId);
+      await chrome.tabs.update(runtimeId, { active: true });
+      await chrome.windows.update(windowId ?? tab.windowId, { focused: true });
+      return runtimeId;
+    } catch { /* The saved tab no longer exists. */ }
+  }
+  const created = await chrome.tabs.create({ url });
+  return created.id;
 }

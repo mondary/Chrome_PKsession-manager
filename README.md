@@ -22,6 +22,7 @@ PK Session conserve vos espaces Chrome comme des sessions vivantes, versionnées
 - **Parcours** montre les lignes de vie et changements d’adresse de chaque onglet.
 - **Origines** représente les relations entre les onglets parents et enfants.
 - La colonne Versions permet de consulter puis restaurer un état antérieur.
+- Un clic sur une ligne active l’onglet Chrome correspondant ; le panneau de détails reste réservé aux vues Parcours et Origines.
 
 ## Build
 

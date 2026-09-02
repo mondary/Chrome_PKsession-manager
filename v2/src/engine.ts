@@ -1,5 +1,5 @@
 import { db } from './db';
-import { isTrackableUrl, type GroupColor, type LogicalTab, type SessionState, type SessionVersion, type TabState, type TabVisit } from './model';
+import { isTrackableUrl, stateSignature, type GroupColor, type LogicalTab, type SessionState, type SessionVersion, type TabState, type TabVisit } from './model';
 
 const WORKSPACE_ID = 'default';
 async function runtimeMap() {
@@ -15,7 +15,9 @@ async function logicalTab(tab: chrome.tabs.Tab) {
     if (existing) return existing;
   }
   const latest = await db.versions.orderBy('number').last();
-  const reusable = latest?.state.tabs.find((saved) => saved.url === (tab.url ?? tab.pendingUrl) && saved.index === tab.index && !Object.values(mapping).includes(saved.id));
+  const reusable = latest?.state.tabs
+    .filter((saved) => saved.url === (tab.url ?? tab.pendingUrl) && !Object.values(mapping).includes(saved.id))
+    .sort((a, b) => Math.abs(a.index - tab.index) - Math.abs(b.index - tab.index))[0];
   const openerId = tab.openerTabId == null ? undefined : mapping[tab.openerTabId];
   const record: LogicalTab = { id: reusable?.id ?? crypto.randomUUID(), runtimeId: tab.id, parentId: reusable?.parentId ?? openerId, title: tab.title ?? 'Nouvel onglet', url: tab.url ?? tab.pendingUrl ?? '', createdAt: Date.now() };
   mapping[tab.id] = record.id;
@@ -72,8 +74,7 @@ async function buildState(): Promise<SessionState> {
 }
 
 const hashState = async (state: SessionState) => {
-  const stable = JSON.stringify(state, (key, value) => key === 'runtimeId' || key === 'windowId' ? undefined : value);
-  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(stable));
+  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(stateSignature(state)));
   return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, '0')).join('');
 };
 
