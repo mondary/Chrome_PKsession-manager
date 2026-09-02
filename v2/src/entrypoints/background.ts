@@ -15,7 +15,7 @@ async function updateBadge() {
 
 export default defineBackground(() => {
   chrome.action.onClicked.addListener(async () => {
-    await captureVersion('manual');
+    await captureVersion('change');
     await updateBadge();
     const url = chrome.runtime.getURL('/app.html');
     const open = (await chrome.tabs.query({ url: `${url}*` }))[0];

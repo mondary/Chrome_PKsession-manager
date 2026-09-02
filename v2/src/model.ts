@@ -7,6 +7,7 @@ export interface SessionVersion { id: string; number: number; createdAt: number;
 export interface TabVisit { id: string; tabId: string; at: number; title: string; url: string; kind: 'created' | 'navigated' | 'closed' }
 export interface Workspace { id: string; name: string; createdAt: number }
 export interface LogicalTab { id: string; runtimeId: number; parentId?: string; title: string; url: string; thumbnail?: string; createdAt: number; closedAt?: number }
+export interface SessionBackup { format: 'pk-session-v2'; version: 1; exportedAt: number; workspaces: Workspace[]; versions: SessionVersion[]; tabs: LogicalTab[]; visits: TabVisit[] }
 
 export type RuntimeRequest =
   | { type: 'CAPTURE_VERSION'; reason?: SessionVersion['reason'] }
@@ -38,7 +39,15 @@ export function stateSignature(state: SessionState) {
 const windowSignature = (state: SessionState, tab: TabState) => JSON.stringify(state.tabs.filter((item) => item.windowId === tab.windowId).sort((a, b) => a.index - b.index).map((item) => item.url));
 
 export function compactVersions(versions: SessionVersion[]) {
-  return versions.filter((version, index) => index === versions.length - 1 || stateSignature(version.state) !== stateSignature(versions[index + 1].state));
+  return versions.filter((version, index) => version.reason === 'manual' || index === versions.length - 1 || stateSignature(version.state) !== stateSignature(versions[index + 1].state));
+}
+
+const rowsHaveIds = (rows: unknown): rows is { id: string }[] => Array.isArray(rows) && rows.every((row) => typeof row === 'object' && row !== null && typeof (row as { id?: unknown }).id === 'string');
+
+export function isSessionBackup(value: unknown): value is SessionBackup {
+  if (typeof value !== 'object' || value === null) return false;
+  const backup = value as Partial<SessionBackup>;
+  return backup.format === 'pk-session-v2' && backup.version === 1 && typeof backup.exportedAt === 'number' && rowsHaveIds(backup.workspaces) && rowsHaveIds(backup.tabs) && rowsHaveIds(backup.visits) && Array.isArray(backup.versions) && backup.versions.every((item) => typeof item?.id === 'string' && typeof item.number === 'number' && Array.isArray(item.state?.tabs) && Array.isArray(item.state?.groups));
 }
 
 export const domainOf = (url: string) => {

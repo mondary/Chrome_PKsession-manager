@@ -6,7 +6,7 @@ Historique des versions de PK Session.
 
 ## TODO — Roadmap
 
-Statut : `2026.09.04` (sessions multi-fenêtres et réglages)
+Statut : `2026.09.05` (sauvegardes manuelles et état courant)
 
 ### V2 — Sessions vivantes
 - [x] Séparer les espaces, versions immuables et identités d’onglets.
@@ -17,6 +17,16 @@ Statut : `2026.09.04` (sessions multi-fenêtres et réglages)
 ---
 
 ## Releases
+
+### [2026.09.05] - 2026-09-02
+#### Added
+- Export et import manuels de toutes les données locales depuis les réglages.
+- Création volontaire de points de restauration, même sans changement de contenu.
+
+#### Fixed
+- L’interface suit le dernier état capturé lorsqu’elle affichait déjà l’état courant.
+- Une nouvelle fenêtre Chrome apparaît ainsi dès la capture suivante sans masquer l’historique consulté volontairement.
+- L’ouverture de PK Session et la fermeture d’un onglet ne créent plus de faux points manuels.
 
 ### [2026.09.04] - 2026-09-02
 #### Added

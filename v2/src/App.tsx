@@ -1,12 +1,12 @@
 import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft, ArrowRight, Blocks, Box, Check, ChevronDown,
-  Command, ExternalLink, GitBranch, History, Layers3, Monitor, Network,
-  Pin, Plus, RotateCcw, Search, Settings2, Sparkles, X,
+  Command, Download, ExternalLink, GitBranch, History, Layers3, Monitor, Network,
+  Pin, Plus, RotateCcw, Search, Settings2, Sparkles, Upload, X,
 } from 'lucide-react';
 import { versions as demoVersions, visits as demoVisits, workspace } from './demo';
 import { db } from './db';
-import { compactVersions, diffVersions, domainOf, type RuntimeRequest, type SessionVersion, type TabState, type TabVisit } from './model';
+import { compactVersions, diffVersions, domainOf, isSessionBackup, type RuntimeRequest, type SessionBackup, type SessionVersion, type TabState, type TabVisit } from './model';
 
 type View = 'workspace' | 'lifelines' | 'map';
 
@@ -34,12 +34,12 @@ function VersionRail({ versions, selected, onSelect, onCreate }: { versions: Ses
             <button className={`version-card ${version.id === selected.id ? 'selected' : ''}`} key={version.id} onClick={() => onSelect(version)}>
               <span className="version-line"><i /><b>état {version.number}</b><time>{formatTime(version.createdAt)}</time></span>
               <strong>{windowCount} fenêtre{windowCount > 1 ? 's' : ''} · {version.state.tabs.length} onglets</strong>
-              <small>{index === 0 ? 'État actuel' : `${diff.added.length} ajoutés · ${diff.removed.length} fermés`}</small>
+              <small>{index === 0 ? `État actuel${version.reason === 'manual' ? ' · point marqué' : ''}` : version.reason === 'manual' ? 'Point de restauration' : `${diff.added.length} ajoutés · ${diff.removed.length} fermés`}</small>
             </button>
           );
         })}
       </div>
-      <button className="new-version" onClick={onCreate}><Plus size={14} /> Marquer cette version</button>
+      <button className="new-version" onClick={onCreate}><Plus size={14} /> Créer un point de restauration</button>
     </aside>
   );
 }
@@ -197,31 +197,39 @@ export function App() {
   const searchRef = useRef<HTMLInputElement>(null);
   const settingsRef = useRef<HTMLDialogElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const importRef = useRef<HTMLInputElement>(null);
   const deferredQuery = useDeferredValue(query);
   const versionIndex = versions.findIndex((item) => item.id === version.id);
   const previous = versions[versionIndex - 1];
   const hasRuntime = typeof chrome !== 'undefined' && Boolean(chrome.runtime?.id);
+  const selectedVersionRef = useRef(version.id);
+  const latestVersionRef = useRef(versions.at(-1)?.id);
+  selectedVersionRef.current = version.id;
+  latestVersionRef.current = versions.at(-1)?.id;
   const send = async <T,>(request: RuntimeRequest) => {
     if (!hasRuntime) return undefined;
     const response = await chrome.runtime.sendMessage(request);
     if (!response?.ok) throw new Error(response?.error ?? 'Action impossible.');
     return response.value as T;
   };
-  const reloadData = async () => {
+  const reloadData = async (selectLatest = false) => {
+    const followLatest = selectLatest || selectedVersionRef.current === latestVersionRef.current;
     const [storedVersions, storedVisits, storedTabs] = await Promise.all([db.versions.orderBy('number').toArray(), db.visits.orderBy('at').toArray(), db.tabs.toArray()]);
     if (!storedVersions.length) return;
     const tabMetadata = new Map(storedTabs.map((tab) => [tab.id, tab]));
     const hydratedVersions = compactVersions(storedVersions).map((item) => ({ ...item, state: { ...item.state, tabs: item.state.tabs.map((tab) => ({ ...tab, thumbnail: tabMetadata.get(tab.id)?.thumbnail })) } }));
     setVersions(hydratedVersions);
     setVisitData(storedVisits);
-    setVersion((current) => hydratedVersions.find((item) => item.id === current.id) ?? hydratedVersions.at(-1)!);
+    setVersion((current) => followLatest ? hydratedVersions.at(-1)! : hydratedVersions.find((item) => item.id === current.id) ?? hydratedVersions.at(-1)!);
   };
   useEffect(() => {
-    const reload = () => void reloadData();
-    reload();
-    window.addEventListener('focus', reload);
-    document.addEventListener('visibilitychange', reload);
-    return () => { window.removeEventListener('focus', reload); document.removeEventListener('visibilitychange', reload); };
+    const reload = async () => { await send({ type: 'CAPTURE_VERSION', reason: 'change' }); await reloadData(); };
+    const onFocus = () => void reload();
+    const onVisible = () => { if (!document.hidden) void reload(); };
+    void reloadData(true);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onVisible); };
   }, []);
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
@@ -238,6 +246,34 @@ export function App() {
     if (settingsOpen && !dialog?.open) dialog?.showModal();
     if (!settingsOpen && dialog?.open) dialog.close();
   }, [settingsOpen]);
+  const exportData = async () => {
+    const [workspaces, storedVersions, tabs, visits] = await Promise.all([db.workspaces.toArray(), db.versions.toArray(), db.tabs.toArray(), db.visits.toArray()]);
+    const backup: SessionBackup = { format: 'pk-session-v2', version: 1, exportedAt: Date.now(), workspaces, versions: storedVersions, tabs, visits };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(backup)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `pk-session-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+  const importData = async (file: File) => {
+    try {
+      const backup: unknown = JSON.parse(await file.text());
+      if (!isSessionBackup(backup)) throw new Error('Ce fichier n’est pas une sauvegarde PK Session valide.');
+      if (!window.confirm('Remplacer toutes les données locales par cette sauvegarde ?')) return;
+      await db.transaction('rw', db.workspaces, db.versions, db.tabs, db.visits, async () => {
+        await Promise.all([db.workspaces.clear(), db.versions.clear(), db.tabs.clear(), db.visits.clear()]);
+        await Promise.all([db.workspaces.bulkPut(backup.workspaces), db.versions.bulkPut(backup.versions), db.tabs.bulkPut(backup.tabs), db.visits.bulkPut(backup.visits)]);
+      });
+      await reloadData(true);
+      setNotice('Sauvegarde importée.');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Import impossible.');
+    } finally {
+      if (importRef.current) importRef.current.value = '';
+      window.setTimeout(() => setNotice(''), 3200);
+    }
+  };
   const moveVersion = (direction: number) => {
     const next = versions[Math.max(0, Math.min(versions.length - 1, versionIndex + direction))];
     setVersion(next);
@@ -248,13 +284,18 @@ export function App() {
     setNotice(restored == null ? `État ${version.number} prêt à restaurer dans une nouvelle fenêtre.` : `${restored} onglets restaurés depuis l’état ${version.number}.`);
     window.setTimeout(() => setNotice(''), 3200);
   };
-  const capture = async () => { await send({ type: 'CAPTURE_VERSION', reason: 'manual' }); await reloadData(); };
+  const capture = async () => {
+    await send({ type: 'CAPTURE_VERSION', reason: 'manual' });
+    await reloadData(true);
+    setNotice('Point de restauration créé.');
+    window.setTimeout(() => setNotice(''), 3200);
+  };
   const openTab = async (tab: TabState) => { await send({ type: 'ACTIVATE_TAB', runtimeId: tab.runtimeId, windowId: tab.windowId, url: tab.url }); };
   const closeTab = async (tab: TabState) => {
     if (tab.runtimeId == null) return;
     await send({ type: 'CLOSE_TAB', runtimeId: tab.runtimeId });
-    await send({ type: 'CAPTURE_VERSION', reason: 'manual' });
-    await reloadData();
+    await send({ type: 'CAPTURE_VERSION', reason: 'change' });
+    await reloadData(true);
   };
   return (
     <div className="app-shell">
@@ -294,7 +335,7 @@ export function App() {
       <dialog ref={settingsRef} className="settings-drawer" aria-labelledby="settings-title" onClose={() => { setSettingsOpen(false); settingsButtonRef.current?.focus(); }} onClick={(event) => { if (event.clientX < event.currentTarget.getBoundingClientRect().left) event.currentTarget.close(); }}>
         <header><div><span>Préférences</span><h2 id="settings-title">Réglages</h2></div><form method="dialog"><button aria-label="Fermer les réglages"><X size={18} /></button></form></header>
         <section><History size={18} /><div><h3>Historique des états</h3><p>Une capture est enregistrée après un changement de la session et toutes les 15 minutes uniquement si son contenu a changé.</p></div></section>
-        <section><Monitor size={18} /><div><h3>Données locales</h3><p>L’historique et les miniatures restent stockés dans ce navigateur. Aucun compte ni serveur externe.</p></div></section>
+        <section><Monitor size={18} /><div><h3>Données locales</h3><p>L’historique et les miniatures restent stockés dans ce navigateur. Aucun compte ni serveur externe.</p><div className="settings-actions"><button onClick={() => void exportData()}><Download size={15} /> Exporter</button><button onClick={() => importRef.current?.click()}><Upload size={15} /> Importer</button><input ref={importRef} type="file" accept="application/json,.json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void importData(file); }} /></div></div></section>
       </dialog>
     </div>
   );

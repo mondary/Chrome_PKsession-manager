@@ -25,6 +25,8 @@ PK Session preserves your Chrome workspaces as living sessions that are automati
 - Clicking a row activates the matching Chrome tab; the details panel remains limited to the Journey and Origins views.
 - Windows appear as separate packs containing their own groups and tabs.
 - `Cmd/Ctrl+K` focuses search, and the Settings button opens a dedicated drawer.
+- Settings provide manual JSON export and import for all local data.
+- **Create a restoration point** deliberately preserves the current state, even when no tab has changed.
 
 ## Build
 

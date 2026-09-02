@@ -25,6 +25,8 @@ PK Session conserve vos espaces Chrome comme des sessions vivantes, versionnées
 - Un clic sur une ligne active l’onglet Chrome correspondant ; le panneau de détails reste réservé aux vues Parcours et Origines.
 - Les fenêtres apparaissent comme des packs distincts contenant leurs groupes et leurs onglets.
 - `Cmd/Ctrl+K` cible la recherche et le bouton Réglages ouvre un drawer dédié.
+- Les réglages permettent d’exporter ou d’importer manuellement toutes les données locales au format JSON.
+- **Créer un point de restauration** conserve volontairement l’état courant, même si aucun onglet n’a changé.
 
 ## Build
 

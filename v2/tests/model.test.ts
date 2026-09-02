@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compactVersions, diffVersions, isTrackableUrl, stateSignature, type SessionVersion, type TabState } from '../src/model';
+import { compactVersions, diffVersions, isSessionBackup, isTrackableUrl, stateSignature, type SessionVersion, type TabState } from '../src/model';
 
 const tab = (id: string, url = `https://${id}.test`): TabState => ({ id, title: id, url, index: 0, pinned: false, sleeping: false, active: false });
 const version = (number: number, tabs: TabState[]): SessionVersion => ({ id: String(number), number, createdAt: number, reason: 'change', stateHash: String(number), state: { groups: [], tabs } });
@@ -24,11 +24,22 @@ describe('session versions', () => {
     expect(compactVersions([first, second])).toEqual([second]);
   });
 
+  it('keeps an explicit restoration point even when its content is unchanged', () => {
+    const first = version(1, [tab('same')]);
+    const marked = { ...version(2, [tab('same')]), reason: 'manual' as const };
+    expect(compactVersions([first, marked])).toEqual([marked]);
+  });
+
   it('preserves window boundaries without depending on Chrome window ids', () => {
     const first = version(1, [{ ...tab('a'), windowId: 10 }, { ...tab('b'), windowId: 20 }]);
     const sameWindows = version(2, [{ ...tab('a'), windowId: 30 }, { ...tab('b'), windowId: 40 }]);
     const mergedWindow = version(3, [{ ...tab('a'), windowId: 50 }, { ...tab('b'), windowId: 50 }]);
     expect(stateSignature(first.state)).toBe(stateSignature(sameWindows.state));
     expect(stateSignature(first.state)).not.toBe(stateSignature(mergedWindow.state));
+  });
+
+  it('rejects malformed backup files before replacing local data', () => {
+    expect(isSessionBackup({ format: 'pk-session-v2', version: 1, exportedAt: Date.now(), workspaces: [], versions: [], tabs: [], visits: [] })).toBe(true);
+    expect(isSessionBackup({ format: 'pk-session-v2', version: 1, workspaces: [], versions: [{ id: 'broken' }], tabs: [], visits: [] })).toBe(false);
   });
 });

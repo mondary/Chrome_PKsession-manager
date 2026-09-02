@@ -82,7 +82,7 @@ export async function captureVersion(reason: SessionVersion['reason'] = 'change'
   const state = await buildState();
   const stateHash = await hashState(state);
   const latest = await db.versions.orderBy('number').last();
-  if (latest?.stateHash === stateHash) return latest;
+  if (latest?.stateHash === stateHash && reason !== 'manual') return latest;
   const version: SessionVersion = { id: crypto.randomUUID(), number: (latest?.number ?? 0) + 1, createdAt: Date.now(), reason, stateHash, state };
   await db.transaction('rw', db.workspaces, db.versions, async () => {
     await db.workspaces.put({ id: WORKSPACE_ID, name: 'Espace de navigation', createdAt: Date.now() });
