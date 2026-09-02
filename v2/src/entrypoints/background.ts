@@ -25,7 +25,10 @@ export default defineBackground(() => {
   chrome.runtime.onInstalled.addListener(() => { void captureVersion('startup'); void updateBadge(); });
   chrome.runtime.onStartup.addListener(() => { void captureVersion('startup'); void updateBadge(); });
   chrome.tabs.onCreated.addListener((tab) => { void recordVisit(tab, 'created'); void updateBadge(); scheduleCapture(); });
-  chrome.tabs.onActivated.addListener(({ tabId }) => { void captureThumbnail(tabId).catch(() => undefined); });
+  chrome.tabs.onActivated.addListener(({ tabId }) => {
+    void captureThumbnail(tabId).catch(() => undefined);
+    void chrome.tabs.get(tabId).then((tab) => recordVisit(tab, 'activated')).catch(() => undefined);
+  });
   chrome.tabs.onRemoved.addListener((tabId) => { void recordClosed(tabId); void updateBadge(); scheduleCapture(); });
   chrome.tabs.onMoved.addListener(scheduleCapture);
   chrome.tabs.onUpdated.addListener((_id, change, tab) => {

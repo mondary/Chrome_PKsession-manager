@@ -11,7 +11,7 @@ PK Session preserves your Chrome workspaces as living sessions that are automati
 - Non-destructive restoration of every Chrome window in the session.
 - Durable identity for every tab and a complete navigation history.
 - Parent/child relationships between tabs opened from another page.
-- Three complementary views: Workspace, Journey, and Origins.
+- Two complementary views: Workspace and Timeline.
 - Hover page preview, favicon, title, URL, and direct close action for every active tab.
 - Extension icon badge synchronized with the number of open web tabs.
 - Local IndexedDB storage with no account, remote API, or telemetry.
@@ -19,10 +19,10 @@ PK Session preserves your Chrome workspaces as living sessions that are automati
 ## Usage
 
 - **Workspace** displays the tabs and groups of a specific version.
-- **Journey** shows each tab’s lifeline and URL changes.
-- **Origins** maps relationships between parent and child tabs.
+- **Timeline** merges navigation, activation, closure, and parent/child relationships while keeping the current state visible on the right.
+- Selecting a tab highlights its complete lineage and dims unrelated branches.
 - The Versions rail lets you inspect and restore an earlier state.
-- Clicking a row activates the matching Chrome tab; the details panel remains limited to the Journey and Origins views.
+- Clicking a row activates the matching Chrome tab; Timeline opens its detailed trail.
 - Windows appear as separate packs containing their own groups and tabs.
 - `Cmd/Ctrl+K` focuses search, and the Settings button opens a dedicated drawer.
 - Settings provide manual JSON export and import for all local data.

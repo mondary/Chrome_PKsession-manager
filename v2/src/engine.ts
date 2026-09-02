@@ -18,8 +18,9 @@ async function logicalTab(tab: chrome.tabs.Tab) {
   const reusable = latest?.state.tabs
     .filter((saved) => saved.url === (tab.url ?? tab.pendingUrl) && !Object.values(mapping).includes(saved.id))
     .sort((a, b) => Math.abs(a.index - tab.index) - Math.abs(b.index - tab.index))[0];
+  const opener = tab.openerTabId == null ? undefined : await chrome.tabs.get(tab.openerTabId).catch(() => undefined);
   const openerId = tab.openerTabId == null ? undefined : mapping[tab.openerTabId];
-  const record: LogicalTab = { id: reusable?.id ?? crypto.randomUUID(), runtimeId: tab.id, parentId: reusable?.parentId ?? openerId, title: tab.title ?? 'Nouvel onglet', url: tab.url ?? tab.pendingUrl ?? '', createdAt: Date.now() };
+  const record: LogicalTab = { id: reusable?.id ?? crypto.randomUUID(), runtimeId: tab.id, parentId: reusable?.parentId ?? openerId, openedFromUrl: reusable?.openedFromUrl ?? opener?.url, title: tab.title ?? 'Nouvel onglet', url: tab.url ?? tab.pendingUrl ?? '', createdAt: Date.now() };
   mapping[tab.id] = record.id;
   await Promise.all([db.tabs.put(record), chrome.storage.session.set({ tabIdentities: mapping })]);
   return record;
@@ -67,7 +68,7 @@ async function buildState(): Promise<SessionState> {
       const url = tab.url ?? tab.pendingUrl ?? '';
       if (!isTrackableUrl(url) || tab.incognito) continue;
       const logical = await logicalTab(tab);
-      state.tabs.push({ id: logical.id, parentId: logical.parentId, runtimeId: tab.id, windowId: tab.windowId, title: tab.title ?? url, url, favicon: tab.favIconUrl, thumbnail: logical.thumbnail, index: tab.index, groupId: tab.groupId >= 0 ? String(tab.groupId) : undefined, pinned: tab.pinned, sleeping: tab.discarded || Boolean(tab.frozen), active: tab.active });
+      state.tabs.push({ id: logical.id, parentId: logical.parentId, openedFromUrl: logical.openedFromUrl, runtimeId: tab.id, windowId: tab.windowId, title: tab.title ?? url, url, favicon: tab.favIconUrl, thumbnail: logical.thumbnail, index: tab.index, groupId: tab.groupId >= 0 ? String(tab.groupId) : undefined, pinned: tab.pinned, sleeping: tab.discarded || Boolean(tab.frozen), active: tab.active });
     }
   }
   return state;

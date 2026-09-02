@@ -11,7 +11,7 @@ PK Session conserve vos espaces Chrome comme des sessions vivantes, versionnées
 - Restauration non destructive de toutes les fenêtres Chrome de la session.
 - Identité durable de chaque onglet et historique complet de ses navigations.
 - Relations parent/enfant entre les onglets ouverts depuis une page.
-- Trois vues complémentaires : Espace, Parcours et Origines.
+- Deux vues complémentaires : Espace et Chronologie.
 - Aperçu de page au survol, favicon, titre, URL et fermeture directe pour chaque onglet actif.
 - Badge de l’icône synchronisé avec le nombre d’onglets web ouverts.
 - Stockage local dans IndexedDB, sans compte, API distante ni télémétrie.
@@ -19,10 +19,10 @@ PK Session conserve vos espaces Chrome comme des sessions vivantes, versionnées
 ## Utilisation
 
 - **Espace** affiche les onglets et groupes d’une version précise.
-- **Parcours** montre les lignes de vie et changements d’adresse de chaque onglet.
-- **Origines** représente les relations entre les onglets parents et enfants.
+- **Chronologie** fusionne navigations, activations, fermetures et relations parent/enfant, avec l’état actuel toujours visible à droite.
+- La sélection d’un onglet met en évidence toute sa filiation et atténue les branches sans relation.
 - La colonne Versions permet de consulter puis restaurer un état antérieur.
-- Un clic sur une ligne active l’onglet Chrome correspondant ; le panneau de détails reste réservé aux vues Parcours et Origines.
+- Un clic sur une ligne active l’onglet Chrome correspondant ; la Chronologie ouvre son parcours détaillé.
 - Les fenêtres apparaissent comme des packs distincts contenant leurs groupes et leurs onglets.
 - `Cmd/Ctrl+K` cible la recherche et le bouton Réglages ouvre un drawer dédié.
 - Les réglages permettent d’exporter ou d’importer manuellement toutes les données locales au format JSON.

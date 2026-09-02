@@ -1,14 +1,14 @@
 import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft, ArrowRight, Blocks, Box, Check, ChevronDown,
-  Command, Download, ExternalLink, GitBranch, History, Layers3, Monitor, Network,
+  Command, Download, ExternalLink, GitBranch, History, Monitor,
   Pin, Plus, RotateCcw, Search, Settings2, Sparkles, Upload, X,
 } from 'lucide-react';
 import { versions as demoVersions, visits as demoVisits, workspace } from './demo';
 import { db } from './db';
-import { compactVersions, diffVersions, domainOf, isSessionBackup, type RuntimeRequest, type SessionBackup, type SessionVersion, type TabState, type TabVisit } from './model';
+import { compactVersions, diffVersions, domainOf, isSessionBackup, relatedTabIds, type RuntimeRequest, type SessionBackup, type SessionVersion, type TabState, type TabVisit } from './model';
 
-type View = 'workspace' | 'lifelines' | 'map';
+type View = 'workspace' | 'timeline';
 
 const formatTime = (date: number) => new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(date);
 const relativeDate = (date: number) => {
@@ -56,7 +56,7 @@ function Inspector({ tab, visits, onClose, onOpen }: { tab: TabState; visits: Ta
       <dl className="tab-facts">
         <div><dt>Identifiant</dt><dd>{tab.id}</dd></div>
         <div><dt>État</dt><dd>{tab.sleeping ? 'En veille' : 'Actif'}</dd></div>
-        <div><dt>Origine</dt><dd>{tab.parentId ?? 'Session'}</dd></div>
+        <div><dt>Origine</dt><dd>{tab.openedFromUrl ? domainOf(tab.openedFromUrl) : tab.parentId ? 'Onglet parent' : 'Session'}</dd></div>
       </dl>
       <section className="trail">
         <header><span>Parcours complet</span><b>{trail.length}</b></header>
@@ -137,50 +137,48 @@ function WorkspaceView({ version, previous, query, isCurrent, onActivateTab, onC
   );
 }
 
-function LifelinesView({ version, visits, onSelectTab }: { version: SessionVersion; visits: TabVisit[]; onSelectTab: (tab: TabState) => void }) {
-  const lanes = version.state.tabs.map((tab) => ({ tab, events: visits.filter((visit) => visit.tabId === tab.id) })).filter((lane) => lane.events.length);
-  const allTimes = visits.map((visit) => visit.at);
-  const min = Math.min(...allTimes);
-  const max = Math.max(...allTimes);
-  const position = (at: number) => 12 + ((at - min) / (max - min || 1)) * 82;
-  return (
-    <div className="lifelines-view">
-      <div className="view-intro"><span><GitBranch size={15} /> Lignes de vie</span><h1>Un onglet garde son identité, même quand son adresse change.</h1><p>Chaque point est une navigation réelle. Sélectionnez une ligne pour parcourir son histoire.</p></div>
-      <div className="time-ruler"><span>plus tôt</span><i /><span>maintenant</span></div>
-      <div className="lanes">
-        {lanes.map(({ tab, events }, laneIndex) => (
-          <button className="lane" key={tab.id} onClick={() => onSelectTab(tab)}>
-            <span className="lane-name"><Favicon tab={tab} /><span><strong>{tab.title}</strong><small>{events.length} étapes</small></span></span>
-            <span className="lane-track" style={{ '--lane': laneIndex } as React.CSSProperties}>
-              {events.map((event) => <i className={`event ${event.kind}`} key={event.id} style={{ left: `${position(event.at)}%` }} title={`${event.title} · ${formatTime(event.at)}`} />)}
-            </span>
-            <span className="lane-end">{domainOf(events.at(-1)!.url)}</span>
-          </button>
-        ))}
+function TimelineView({ versions, selected, visits, focusedId, onSelectTab, onSelectVersion, onActivateTab }: { versions: SessionVersion[]; selected: SessionVersion; visits: TabVisit[]; focusedId?: string; onSelectTab: (tab: TabState) => void; onSelectVersion: (version: SessionVersion) => void; onActivateTab: (tab: TabState) => void }) {
+  const current = versions.at(-1)!;
+  const catalog = new Map<string, TabState>();
+  for (const item of versions) for (const tab of item.state.tabs) catalog.set(tab.id, tab);
+  for (const tab of current.state.tabs) catalog.set(tab.id, tab);
+  const allTabs = [...catalog.values()];
+  const currentIds = new Set(current.state.tabs.map((tab) => tab.id));
+  const related = relatedTabIds(allTabs, focusedId);
+  const times = [...visits.map((visit) => visit.at), ...versions.map((item) => item.createdAt)];
+  const min = Math.min(...times);
+  const max = Math.max(...times);
+  const position = (at: number) => 4 + ((at - min) / (max - min || 1)) * 92;
+  const windows = [...new Set(current.state.tabs.map((tab) => tab.windowId ?? 0))].map((windowId, index) => {
+    const windowTabs = current.state.tabs.filter((tab) => (tab.windowId ?? 0) === windowId);
+    const groups = [
+      ...current.state.groups.map((group) => ({ id: group.id, title: group.title, color: group.color, tabs: windowTabs.filter((tab) => tab.groupId === group.id) })),
+      { id: 'loose', title: 'Sans groupe', color: 'grey', tabs: windowTabs.filter((tab) => !tab.groupId) },
+    ].filter((group) => group.tabs.length);
+    return { id: windowId, number: index + 1, groups };
+  });
+  const closed = allTabs.filter((tab) => !currentIds.has(tab.id));
+  const renderLane = (tab: TabState) => {
+    const events = visits.filter((visit) => visit.tabId === tab.id).sort((a, b) => a.at - b.at);
+    const parent = tab.parentId ? catalog.get(tab.parentId) : undefined;
+    const dimmed = focusedId && !related.has(tab.id);
+    return <div className={`timeline-lane ${dimmed ? 'dimmed' : ''}`} key={tab.id}>
+      <button className="timeline-identity" onClick={() => onSelectTab(tab)}><Favicon tab={tab} /><span><strong>{tab.title}</strong><small>{parent ? `↳ depuis ${domainOf(tab.openedFromUrl ?? parent.url)}` : events.length ? `${events.length} événements` : 'origine de session'}</small></span></button>
+      <div className="timeline-track">
+        <i className="checkpoint-line" style={{ left: `${position(selected.createdAt)}%` }} />
+        {events.map((event) => <button className={`timeline-event ${event.kind}`} key={event.id} style={{ left: `${position(event.at)}%` }} aria-label={`${event.kind} : ${event.title}, ${formatTime(event.at)}`} title={`${event.title} · ${formatTime(event.at)}`} onClick={() => onSelectTab(tab)} />)}
       </div>
-    </div>
-  );
-}
-
-function MapView({ version, onSelectTab }: { version: SessionVersion; onSelectTab: (tab: TabState) => void }) {
-  const tabs = version.state.tabs;
-  const positions = new Map(tabs.map((tab, index) => [tab.id, { x: 330 + (index % 3) * 220, y: 84 + Math.floor(index / 3) * 150 }]));
+      {currentIds.has(tab.id) ? <button className="current-tab" onClick={() => onActivateTab(tab)}><Favicon tab={tab} /><span><strong>{tab.title}</strong><small>{domainOf(tab.url)}</small></span></button> : <span className="closed-tab"><X size={13} /> fermé</span>}
+    </div>;
+  };
   return (
-    <div className="map-view">
-      <div className="map-copy"><span><Network size={15} /> Origines</span><strong>Qui a ouvert quoi ?</strong><small>Les liens décrivent les branches parent/enfant, pas une catégorie artificielle.</small></div>
-      <svg className="edges" aria-hidden="true">
-        {tabs.map((tab) => {
-          const from = tab.parentId ? positions.get(tab.parentId) : { x: 70, y: 285 };
-          const to = positions.get(tab.id)!;
-          if (!from) return null;
-          return <path key={tab.id} d={`M ${from.x + 120} ${from.y + 28} C ${from.x + 170} ${from.y + 28}, ${to.x - 50} ${to.y + 28}, ${to.x} ${to.y + 28}`} />;
-        })}
-      </svg>
-      <div className="session-origin"><Layers3 size={18} /><span><strong>{workspace.name}</strong><small>session vivante</small></span></div>
-      {tabs.map((tab) => {
-        const point = positions.get(tab.id)!;
-        return <button className="map-node" key={tab.id} style={{ left: point.x, top: point.y }} onClick={() => onSelectTab(tab)}><Favicon tab={tab} /><span><strong>{tab.title}</strong><small>{domainOf(tab.url)}</small></span></button>;
-      })}
+    <div className="timeline-view">
+      <div className="view-intro"><span><GitBranch size={15} /> Chronologie vivante</span><h1>Le passé mène aux onglets ouverts maintenant.</h1><p>Les navigations avancent de gauche à droite. Sélectionnez un onglet pour isoler toute sa branche.</p></div>
+      <div className="timeline-head"><span>Filiation</span><div className="timeline-ruler"><small>plus tôt</small>{versions.map((item) => <button className={item.id === selected.id ? 'selected' : ''} key={item.id} style={{ left: `${position(item.createdAt)}%` }} aria-label={`Afficher l’état ${item.number}`} onClick={() => onSelectVersion(item)} />)}<small>maintenant</small></div><strong>État actuel</strong></div>
+      <div className="timeline-board">
+        {windows.map((window) => <section className="timeline-window" key={window.id}><header><Monitor size={14} /><strong>Fenêtre {window.number}</strong></header>{window.groups.map((group) => <section className="timeline-group" key={`${window.id}-${group.id}`}><h2><i className={`group-dot ${group.color}`} />{group.title}<small>{group.tabs.length}</small></h2>{group.tabs.map(renderLane)}</section>)}</section>)}
+        {closed.length > 0 && <section className="timeline-window archived"><header><History size={14} /><strong>Onglets fermés</strong></header><section className="timeline-group">{closed.map(renderLane)}</section></section>}
+      </div>
     </div>
   );
 }
@@ -304,8 +302,7 @@ export function App() {
         <div className="workspace-switch"><span className="live-dot" />{workspace.name}<ChevronDown size={14} /></div>
         <nav aria-label="Vues principales">
           <button className={view === 'workspace' ? 'active' : ''} onClick={() => { setView('workspace'); setSelectedTab(undefined); }}><Box size={15} /> Espace</button>
-          <button className={view === 'lifelines' ? 'active' : ''} onClick={() => { setView('lifelines'); setSelectedTab(undefined); }}><GitBranch size={15} /> Parcours</button>
-          <button className={view === 'map' ? 'active' : ''} onClick={() => { setView('map'); setSelectedTab(undefined); }}><Network size={15} /> Origines</button>
+          <button className={view === 'timeline' ? 'active' : ''} onClick={() => { setView('timeline'); setSelectedTab(undefined); }}><GitBranch size={15} /> Chronologie</button>
         </nav>
         <div className="top-actions">
           <label className="search"><Search size={14} /><input ref={searchRef} aria-label="Rechercher un onglet ou un domaine" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Onglet, domaine…" /><kbd>⌘ K</kbd></label>
@@ -323,8 +320,7 @@ export function App() {
           <div className={`content-grid ${selectedTab ? 'with-inspector' : ''}`}>
             <div className="content-canvas">
               {view === 'workspace' && <WorkspaceView version={version} previous={previous} query={deferredQuery} isCurrent={versionIndex === versions.length - 1} onActivateTab={(tab) => void openTab(tab)} onCloseTab={(tab) => void closeTab(tab)} />}
-              {view === 'lifelines' && <LifelinesView version={version} visits={visitData} onSelectTab={setSelectedTab} />}
-              {view === 'map' && <MapView version={version} onSelectTab={setSelectedTab} />}
+              {view === 'timeline' && <TimelineView versions={versions} selected={version} visits={visitData} focusedId={selectedTab?.id} onSelectTab={setSelectedTab} onSelectVersion={setVersion} onActivateTab={(tab) => void openTab(tab)} />}
             </div>
             {selectedTab && <Inspector tab={selectedTab} visits={visitData} onOpen={() => void openTab(selectedTab)} onClose={() => setSelectedTab(undefined)} />}
           </div>

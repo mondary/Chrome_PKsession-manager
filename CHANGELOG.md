@@ -6,7 +6,7 @@ Historique des versions de PK Session.
 
 ## TODO — Roadmap
 
-Statut : `2026.09.05` (sauvegardes manuelles et état courant)
+Statut : `2026.09.06` (chronologie vivante)
 
 ### V2 — Sessions vivantes
 - [x] Séparer les espaces, versions immuables et identités d’onglets.
@@ -17,6 +17,17 @@ Statut : `2026.09.05` (sauvegardes manuelles et état courant)
 ---
 
 ## Releases
+
+### [2026.09.06] - 2026-09-02
+#### Added
+- Chronologie horizontale reliant navigations, activations, fermetures et onglets actuellement ouverts.
+- Mise en évidence de toute la filiation parent/enfant autour de l’onglet sélectionné.
+- Enregistrement de l’URL depuis laquelle un nouvel onglet a été ouvert.
+
+#### Changed
+- Fusion des anciennes vues Parcours et Origines dans une vue Chronologie unique.
+- Les fenêtres et groupes structurent les lignes tandis que l’état actuel reste visible à droite.
+- Les points de restauration deviennent des repères temporels dans la chronologie.
 
 ### [2026.09.05] - 2026-09-02
 #### Added

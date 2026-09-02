@@ -7,7 +7,7 @@ const groups: TabGroup[] = [
   { id: 'research', title: 'Research', color: 'purple', collapsed: false },
   { id: 'admin', title: 'Admin', color: 'orange', collapsed: false },
 ];
-const makeTab = (id: string, title: string, url: string, index: number, extra: Partial<TabState> = {}): TabState => ({ id, runtimeId: 100 + index, title, url, favicon: `${new URL(url).origin}/favicon.ico`, index, pinned: false, sleeping: false, active: false, ...extra });
+const makeTab = (id: string, title: string, url: string, index: number, extra: Partial<TabState> = {}): TabState => ({ id, runtimeId: 100 + index, windowId: 1, title, url, favicon: `${new URL(url).origin}/favicon.ico`, index, pinned: false, sleeping: false, active: false, ...extra });
 const catalog = [
   makeTab('roadmap', 'Product roadmap', 'https://notion.so/product-roadmap', 0, { groupId: 'build', pinned: true }),
   makeTab('repo', 'PK Session Manager', 'https://github.com/pk/session-manager', 1, { groupId: 'build', active: true, parentId: 'roadmap' }),
@@ -17,8 +17,8 @@ const catalog = [
   makeTab('dexie', 'Dexie.js documentation', 'https://dexie.org/docs', 5, { groupId: 'research', parentId: 'storage', sleeping: true }),
   makeTab('figma', 'Session timeline · Figma', 'https://figma.com/file/session-timeline', 6, { groupId: 'build', parentId: 'roadmap' }),
   makeTab('linear', 'V2 launch · Linear', 'https://linear.app/pk/project/v2-launch', 7, { groupId: 'build', parentId: 'roadmap' }),
-  makeTab('mail', 'Inbox (4)', 'https://mail.google.com', 8, { groupId: 'admin', pinned: true }),
-  makeTab('calendar', 'September 2026', 'https://calendar.google.com', 9, { groupId: 'admin' }),
+  makeTab('mail', 'Inbox (4)', 'https://mail.google.com', 0, { windowId: 2, groupId: 'admin', pinned: true }),
+  makeTab('calendar', 'September 2026', 'https://calendar.google.com', 1, { windowId: 2, groupId: 'admin' }),
   makeTab('workona', 'Workona product notes', 'https://workona.com', 10, { groupId: 'research', parentId: 'roadmap', sleeping: true }),
   makeTab('tablerone', 'Tablerone comparison', 'https://tabler.one', 11, { groupId: 'research', parentId: 'workona', sleeping: true }),
   makeTab('store', 'Chrome Web Store dashboard', 'https://chrome.google.com/webstore/devconsole', 12, { groupId: 'admin', parentId: 'repo' }),
@@ -33,7 +33,7 @@ export const versions: SessionVersion[] = counts.map((count, index) => {
     createdAt: now - (counts.length - 1 - index) * 17 * minute,
     reason: index === counts.length - 1 ? 'manual' : 'change',
     stateHash: `state-${index}`,
-    state: { groups, tabs: tabs.map((tab, tabIndex) => ({ ...tab, index: tabIndex })) },
+    state: { groups, tabs: tabs.map((tab) => ({ ...tab })) },
   };
 });
 

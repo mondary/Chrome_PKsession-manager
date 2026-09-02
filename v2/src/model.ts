@@ -1,12 +1,12 @@
 export type GroupColor = 'blue' | 'cyan' | 'green' | 'grey' | 'orange' | 'pink' | 'purple' | 'red' | 'yellow';
 
 export interface TabGroup { id: string; title: string; color: GroupColor; collapsed: boolean }
-export interface TabState { id: string; parentId?: string; runtimeId?: number; windowId?: number; title: string; url: string; favicon?: string; thumbnail?: string; index: number; groupId?: string; pinned: boolean; sleeping: boolean; active: boolean }
+export interface TabState { id: string; parentId?: string; openedFromUrl?: string; runtimeId?: number; windowId?: number; title: string; url: string; favicon?: string; thumbnail?: string; index: number; groupId?: string; pinned: boolean; sleeping: boolean; active: boolean }
 export interface SessionState { groups: TabGroup[]; tabs: TabState[] }
 export interface SessionVersion { id: string; number: number; createdAt: number; reason: 'change' | 'manual' | 'startup'; stateHash: string; state: SessionState }
-export interface TabVisit { id: string; tabId: string; at: number; title: string; url: string; kind: 'created' | 'navigated' | 'closed' }
+export interface TabVisit { id: string; tabId: string; at: number; title: string; url: string; kind: 'created' | 'navigated' | 'activated' | 'closed' }
 export interface Workspace { id: string; name: string; createdAt: number }
-export interface LogicalTab { id: string; runtimeId: number; parentId?: string; title: string; url: string; thumbnail?: string; createdAt: number; closedAt?: number }
+export interface LogicalTab { id: string; runtimeId: number; parentId?: string; openedFromUrl?: string; title: string; url: string; thumbnail?: string; createdAt: number; closedAt?: number }
 export interface SessionBackup { format: 'pk-session-v2'; version: 1; exportedAt: number; workspaces: Workspace[]; versions: SessionVersion[]; tabs: LogicalTab[]; visits: TabVisit[] }
 
 export type RuntimeRequest =
@@ -48,6 +48,17 @@ export function isSessionBackup(value: unknown): value is SessionBackup {
   if (typeof value !== 'object' || value === null) return false;
   const backup = value as Partial<SessionBackup>;
   return backup.format === 'pk-session-v2' && backup.version === 1 && typeof backup.exportedAt === 'number' && rowsHaveIds(backup.workspaces) && rowsHaveIds(backup.tabs) && rowsHaveIds(backup.visits) && Array.isArray(backup.versions) && backup.versions.every((item) => typeof item?.id === 'string' && typeof item.number === 'number' && Array.isArray(item.state?.tabs) && Array.isArray(item.state?.groups));
+}
+
+export function relatedTabIds(tabs: TabState[], focusedId?: string) {
+  if (!focusedId) return new Set(tabs.map((tab) => tab.id));
+  const related = new Set([focusedId]);
+  let size = 0;
+  while (size !== related.size) {
+    size = related.size;
+    for (const tab of tabs) if (related.has(tab.id) || (tab.parentId && related.has(tab.parentId))) { related.add(tab.id); if (tab.parentId) related.add(tab.parentId); }
+  }
+  return related;
 }
 
 export const domainOf = (url: string) => {
